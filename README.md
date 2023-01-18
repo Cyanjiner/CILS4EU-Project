@@ -14,12 +14,12 @@ Stanford EDS seminar research project on high school friendship networks &amp; s
 **Primary Measures of Interests:**
 1. School satisfication
 2. Social Integration
-  - Frienship (Strong Ties)
-  - Family Relations
+   * Frienship (Strong Ties)
+   * Family Relations
 
 3. Well-Being
-  - Personality & Psychological Well-Being
-  - Health
+   * Personality & Psychological Well-Being
+   * Health
 
 
 ## Methodology
