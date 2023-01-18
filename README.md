@@ -7,7 +7,7 @@ Stanford EDS seminar research project on high school friendship networks &amp; s
 
 
 ## Data
-**Source**: [Children of Immigrants Longitudinal Survey in Four European Countries (CILS4EU) - Campus](https://www.cils4.eu/index.php?option=com_content&view=article&id=130&Itemid=235)
+**Source**: Kalter, Frank, Irena Kogan, and Jörg Dollmann. 2022. Children of Immigrants Longitudinal Survey in Four European Countries (CILS4EU) – Campus Use File (Germany). Data file for download and off-site use. GESIS Data Archive, Cologne, ZA5994 Data file Version 1.0.0, [doi:10.4232/cils4eu.5994.1.0.0](https://www.cils4.eu/index.php?option=com_content&view=article&id=134)
 
 - The CILS4EU campus file includes a **subsample** of the 1st, 2nd, & 3rd wave (from 2010/2011) of the **German** CILS4EU sample, which comprises 2,498 of the 5,013 adolescents (high school students ~aged 14).
 
