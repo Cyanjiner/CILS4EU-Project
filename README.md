@@ -7,7 +7,20 @@ Stanford EDS seminar research project on high school friendship networks &amp; s
 
 
 ## Data
-Source: [Children of Immigrants Longitudinal Survey in Four European Countries (CILS4EU) - Campus](https://www.cils4.eu/index.php?option=com_content&view=article&id=130&Itemid=235)
+**Source**: [Children of Immigrants Longitudinal Survey in Four European Countries (CILS4EU) - Campus](https://www.cils4.eu/index.php?option=com_content&view=article&id=130&Itemid=235)
+
+- The CILS4EU campus file includes a **subsample** of the 1st, 2nd, & 3rd wave (from 2010/2011) of the **German** CILS4EU sample, which comprises 2,498 of the 5,013 adolescents (high school students ~aged 14).
+
+**Primary Measures of Interests:**
+1. School satisfication
+2. Social Integration
+  - Frienship (Strong Ties)
+  - Family Relations
+
+3. Well-Being
+  - Personality & Psychological Well-Being
+  - Health
+
 
 ## Methodology
 
