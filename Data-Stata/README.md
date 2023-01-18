@@ -3,7 +3,7 @@
 
 | File name          | File content |       
 | --- | ------------- |
-| w1_achievement.dta | Youth Achievement Data (wave 1)    -   contains respondents' scores on the **language** and **cognitive ability tests** implemented in wave one (`8 variables)`)   |                                                                                                                                           
+| w1_achievement.dta | Youth Achievement Data (wave 1)    //-   contains respondents' scores on the **language** and **cognitive ability tests** implemented in wave one (`8 variables)`)   |                                                                                                                                           
 | w1_classmate.dta   | Youth Classmates Data (wave 1)                                                                                                                                                       |
 |                    |                                                                                                                                                                                      |
 |                    | -   Each student nominated others in their class for a number of different criteria (*e.g. best friends, live close*). `(220 variables)`                                             |
