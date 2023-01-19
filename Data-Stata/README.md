@@ -12,6 +12,4 @@
 | w3_friend.dta      | Youth Friends Data (wave 3) `(16 variables)`  |
 | w3_main.dta        | Youth Main Data (wave 3)  `(142 variables)`   |
 | w123_tracking.dta  | Tracking Data contains general **sample information** & **participation status** for all 3 waves `(16 variables)` |
-+--------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-: The CUF data
