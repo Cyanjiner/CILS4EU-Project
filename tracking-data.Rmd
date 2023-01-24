@@ -13,7 +13,10 @@ library(dplyr)
 library(ggplot2)
 library(descr) # for using freq() funcion
 ```
-
+## Tracking data Wave 1
+```{r wave1 youth classmates}
+freq(w123_tracking$ps_w1_yc, plot = FALSE)
+```
 ## Tracking data - Wave 2
 
 ```{r wave2 youth}
@@ -51,3 +54,64 @@ freq(w123_tracking$ps_w3_yf, plot = FALSE)
 ```
 
 ### Wave 3 DOES NOT have classmates questionnaire!
+
+## Data Wrangling First Stage --> W1 & W2 
+
+We decided to (preliminarily) work with the wave 1 and wave 2 data as wave 3 does not contain classmates component. And the classmate data contains richer information about weak/strong tie strengths of friendships as well as unique identifiers of each student that allow us to connect each individual to form the friendship network.
+
+### 1. Excluding students who did not respond to the wave 1 & 2 classmates questionnaire.
+```{r excluding respondents from w2, eval=FALSE}
+# list of student ids needed to be excluded from cross-sectional analyses of wave 1 and wave 2 data
+excluded_student_ids <- w123_tracking %>% 
+  filter(ps_w2_yc == 0 | ps_w1_yc == 0) %>% 
+  select(youthidCUF)
+
+length(excluded_student_ids$youthidCUF)
+# 9 did not respond to wave 1 classmates
+# 738 did not repond to wave 2 classmates
+
+w1_yc_updated <- w1_classmate %>% 
+  filter(!youthidCUF %in% excluded_student_ids$youthidCUF)
+write_dta(w1_yc_updated, "Data-Stata/our_data/w1_yc.dta")
+
+w1_ym_updated <- w1_main %>% 
+  filter(!youthidCUF %in% excluded_student_ids$youthidCUF)
+write_dta(w1_ym_updated, "Data-Stata/our_data/w1_ym.dta")
+
+w1_yf_updated <- w1_friend %>% 
+  filter(!youthidCUF %in% excluded_student_ids$youthidCUF)
+write_dta(w1_yf_updated, "Data-Stata/our_data/w1_yf.dta")
+
+w2_yc_updated <- w2_classmate %>% 
+  filter(!youthidCUF %in% excluded_student_ids$youthidCUF)
+write_dta(w2_yc_updated, "Data-Stata/our_data/w2_yc.dta")
+
+w2_ym_updated <- w2_main %>% 
+  filter(!youthidCUF %in% excluded_student_ids$youthidCUF)
+write_dta(w2_ym_updated, "Data-Stata/our_data/w2_ym.dta")
+```
+
+
+## W1 friends 
+Variable: y1_schf1 / y1_schf2 / y1_schf3, etc.
+Does he/she go to your school? Friend1
+1 - Yes, same class
+2 - Yes, but different class
+3 - No, goes to another school
+4 - No. has finished schooling
+```{r w1 friends}
+freq(w1_friend$y1_schf1, plot = FALSE)
+freq(w1_friend$y1_schf2, plot = FALSE)
+freq(w1_friend$y1_schf3, plot = FALSE)
+freq(w1_friend$y1_schf4, plot = FALSE)
+freq(w1_friend$y1_schf5, plot = FALSE)
+
+```
+
+## W1 Classmates
+```{r w1 friends}
+unique(w1_classmate$y1_bfs_0)
+freq(w1_classmate$y1_bfs_0)
+unique(w1_friend$y1_f1G)
+```
+
