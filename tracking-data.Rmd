@@ -1,0 +1,53 @@
+---
+title: "Data Cleaning"
+output: html_document
+date: "2023-01-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r load packages}
+library(dplyr)
+library(ggplot2)
+library(descr) # for using freq() funcion
+```
+
+## Tracking data - Wave 2
+
+```{r wave2 youth}
+freq(w123_tracking$ps_w2_yRV, plot = FALSE)
+```
+
+```{r wave2 youth main}
+freq(w123_tracking$ps_w2_ym, plot = FALSE)
+```
+
+### Wave 2 DOES NOT have friends questionnaire!
+
+### 738 students DID NOT respond to Wave 2 classmates questionnaire.
+
+```{r wave2 youth classmates}
+freq(w123_tracking$ps_w2_yc, plot = FALSE)
+```
+
+## Tracking data - Wave 3
+
+```{r wave3 youth}
+freq(w123_tracking$ps_w3_yRV, plot = FALSE)
+```
+
+### All 2498 participants responded to Wave 3 Youth Main questionnaire.
+
+```{r wave3 youth main}
+freq(w123_tracking$ps_w3_ym, plot = FALSE)
+```
+
+### 17 participants DID NOT respond to Wave 3 Youth Friends (5 best friends) questionnaire.
+
+```{r wave3 youth friend}
+freq(w123_tracking$ps_w3_yf, plot = FALSE)
+```
+
+### Wave 3 DOES NOT have classmates questionnaire!
