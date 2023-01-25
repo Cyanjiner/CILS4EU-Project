@@ -1,0 +1,149 @@
+---
+title: "classmate_analysis"
+output: html_document
+date: "2023-01-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+# Youth Classmates Network Analysis
+
+```{r load packages}
+library(dplyr)
+if(!require(statnet)) install.packages("statnet",repos = "http://cran.us.r-project.org")
+library("statnet")
+library(GGally)
+library(tidyverse)
+```
+
+#### 65% of all 80 schools in our subsample examined 2 classes
+```{r count classes by school}
+# total number of school -- 80
+w1_yc <- haven::read_dta("Data-Stata/our_data/w1_yc.dta")
+w1_yc %>% 
+  group_by(schoolidCUF) %>% 
+  summarise(n_class = length(unique(classidCUF))) %>% 
+  group_by(n_class) %>% 
+  summarise(count_by_num_class=n(),
+            percent = count_by_num_class/80)
+```
+
+```{r count students by school}
+w1_yc %>% 
+  group_by(schoolidCUF) %>% 
+  summarise(total_obs = n()) %>% # NUM of participants from each school
+  arrange(desc(total_obs)) %>% 
+  top_n(5)
+```
+
+```{r use school3928--highest # of participated students as example}
+school3928 <- w1_yc %>% 
+  filter(schoolidCUF == 3928)
+
+# exclude useless variables
+school3928 <- school3928 %>% 
+  select(-schtype_geRV, -y1_intdat_ycRV, -y1_vers_yc)
+colnames(school3928)
+```
+
+```{r data preprocess for school3928 network}
+# data only includes friendship measurs
+network3928 <- school3928 %>% 
+  select(youthidCUF, 4:210)
+
+# code out missing values
+network3928_clean <- network3928 %>% 
+  labelled::to_factor() %>%  # changed labelled/haven_labelled object to factor
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame()
+```
+
+Storing a network using an adjacency matrix also helps storing network attributes (by using the rownames of the adjacency matrix and assigning those rownames the corresponding attributes - we’ll see that later).
+
+Following the workflow described above, we are going to create an empty matrix with the unique student IDs as the row and column names so that we can later populate them with the information from the edgelist.
+
+```{r construct adjacency matrix}
+students <- unique(network3928_clean$youthidCUF)
+mat <- matrix(0, nrow=length(students), ncol = length(students))
+colnames(mat) <- as.character(students)
+rownames(mat) <- as.character(students)
+# A glimpse of what this look lik
+mat[1:4,1:4]
+```
+
+We are now going to use a loop to fill the matrix: 1 whenever there is a friendship tie in students, 0 otherwise.
+```{r fill adjacency matrix}
+i <- 1
+for (i in 1:nrow(network3928_clean)) {
+  row.index <- which(students == network3928_clean[i,1])
+  col.index <- which(students == network3928_clean[i,3]) # col 3 is best friends 1
+  mat[row.index, col.index] <- 1
+}
+mat[1:4,]
+```
+
+### Friendship Network at School 3928 --> Best Friend 1 ONLY
+```{r building network object1}
+# redefining the names as characters, so that R can read them properly.
+friendnet3928 <- network3928_clean %>% 
+  select(youthidCUF, y1_bfs_1, y1_bfs_2) %>% 
+  mutate(youthidCUF = as.character(youthidCUF),
+         y1_bfs_1 = as.character(y1_bfs_1))
+
+bf1_nw <- network(friendnet3928, matrix.type = "edgelist")
+#Or we can do it by using the adjacency matrix:
+#nw2 <- network(mat, directed = TRUE)
+ggnet2(bf1_nw,
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+```{r building network object}
+# redefining the names as characters, so that R can read them properly.
+friendnet3928 <- network3928_clean %>% 
+  select(youthidCUF, y1_bfs_1, y1_bfs_2) %>% 
+  mutate(youthidCUF = as.character(youthidCUF),
+         y1_bfs_1 = as.character(y1_bfs_1),
+         y1_bfs_2 = as.character(y1_bfs_2))
+
+nw <- network(friendnet3928, directed = TRUE, matrix.type = "edgelist")
+#Or we can do it by using the adjacency matrix:
+nw2 <- network(mat, directed = TRUE)
+```
+
+```{r network plot}
+GGally::ggnet2(nw,
+               label = TRUE,
+               label.size = 3,
+               arrow.size = 3,
+               arrow.gap = .03)
+```
+
+Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long ([Relevant Tutorial here](https://tavareshugo.github.io/r-intro-tidyverse-gapminder/09-reshaping/index.html))
+```{r reshape data}
+bfs3928 <- network3928_clean %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "friendid")
+
+bfs3928 <- bfs3928 %>% 
+  select(youthidCUF, friendid) %>% 
+  filter(!is.na(friendid)) %>% 
+  mutate(youthidCUF = as.character(youthidCUF),
+         friendid = as.character(friendid))
+
+bfs_nw <- network(bfs3928, matrix.type = "edgelist")
+#Or we can do it by using the adjacency matrix:
+#nw2 <- network(mat, directed = TRUE)
+ggnet2(bfs_nw,
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
