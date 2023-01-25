@@ -19,6 +19,7 @@ library(tidyverse)
 ```
 
 #### 65% of all 80 schools in our subsample examined 2 classes
+
 ```{r count classes by school}
 # total number of school -- 80
 w1_yc <- haven::read_dta("Data-Stata/our_data/w1_yc.dta")
@@ -60,7 +61,9 @@ network3928_clean <- network3928 %>%
   data.frame()
 ```
 
-Storing a network using an adjacency matrix also helps storing network attributes (by using the rownames of the adjacency matrix and assigning those rownames the corresponding attributes - we’ll see that later).
+Relevant tutorial on networks in R [HERE](https://rstudio-pubs-static.s3.amazonaws.com/470420_91f1d47c90c54b879aa08ce93fa66730.html)
+
+Storing a network using an adjacency matrix also helps storing network attributes (by using the rownames of the adjacency matrix and assigning those rownames the corresponding attributes - we'll see that later).
 
 Following the workflow described above, we are going to create an empty matrix with the unique student IDs as the row and column names so that we can later populate them with the information from the edgelist.
 
@@ -74,6 +77,7 @@ mat[1:4,1:4]
 ```
 
 We are now going to use a loop to fill the matrix: 1 whenever there is a friendship tie in students, 0 otherwise.
+
 ```{r fill adjacency matrix}
 i <- 1
 for (i in 1:nrow(network3928_clean)) {
@@ -84,7 +88,8 @@ for (i in 1:nrow(network3928_clean)) {
 mat[1:4,]
 ```
 
-### Friendship Network at School 3928 --> Best Friend 1 ONLY
+### Friendship Network at School 3928 --\> Best Friend 1 ONLY
+
 ```{r building network object1}
 # redefining the names as characters, so that R can read them properly.
 friendnet3928 <- network3928_clean %>% 
@@ -124,6 +129,7 @@ GGally::ggnet2(nw,
 ```
 
 Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long ([Relevant Tutorial here](https://tavareshugo.github.io/r-intro-tidyverse-gapminder/09-reshaping/index.html))
+
 ```{r reshape data}
 bfs3928 <- network3928_clean %>% 
   select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
@@ -146,4 +152,3 @@ ggnet2(bfs_nw,
        arrow.size = 3,
        arrow.gap = .03)
 ```
-
