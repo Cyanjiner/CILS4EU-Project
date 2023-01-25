@@ -46,11 +46,12 @@ school3928 <- w1_yc %>%
 # exclude useless variables
 school3928 <- school3928 %>% 
   select(-schtype_geRV, -y1_intdat_ycRV, -y1_vers_yc)
-colnames(school3928)
+#colnames(school3928)
 ```
 
+[Tutorial on labelled/unlabelled object in R](https://cran.r-project.org/web/packages/labelled/vignettes/intro_labelled.html)
 ```{r data preprocess for school3928 network}
-# data only includes friendship measurs
+# data only includes friendship measures
 network3928 <- school3928 %>% 
   select(youthidCUF, 4:210)
 
@@ -128,6 +129,7 @@ GGally::ggnet2(nw,
                arrow.gap = .03)
 ```
 
+### Friendship Network at School 3928 --> All 5 best friends
 Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long ([Relevant Tutorial here](https://tavareshugo.github.io/r-intro-tidyverse-gapminder/09-reshaping/index.html))
 
 ```{r reshape data}
