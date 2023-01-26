@@ -17,6 +17,7 @@ library(dplyr)
 library(labelled)
 library(janitor)
 library(pastecs)
+
 ```
 
 # Data Preprocessig Steps
@@ -39,6 +40,7 @@ w1_satisfaction <- w1_ym |>
   
 ```
 
+## Regression model with negative outgoing ties only
 ```{r}
 
 w1_negative_outgoing_ties <- w1_class_clean |> 
@@ -56,6 +58,14 @@ model_1 <-lm(formula =  satisfaction ~ 1 + number_outgoing_negative, data = nega
 summary(model_1)
 
 ```
+
+## Regression model with positive ties + negative outgoing ties
+```{r add positive ties}
+negative_positive_satisfaction <- full_join(negative_outgoing_satisfaction, w1_pos_yc)
+model_2 <-lm(formula =  satisfaction ~ 1 + num_bfs+n_mutual_bfs+number_outgoing_negative, data = negative_positive_satisfaction)
+summary(model_2)
+```
+
 
 ```{r}
 w1_negative_incoming_ties <- w1_class_clean |> 

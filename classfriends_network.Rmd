@@ -89,46 +89,6 @@ for (i in 1:nrow(network3928_clean)) {
 mat[1:4,]
 ```
 
-### Friendship Network at School 3928 --\> Best Friend 1 ONLY
-
-```{r building network object1}
-# redefining the names as characters, so that R can read them properly.
-friendnet3928 <- network3928_clean %>% 
-  select(youthidCUF, y1_bfs_1, y1_bfs_2) %>% 
-  mutate(youthidCUF = as.character(youthidCUF),
-         y1_bfs_1 = as.character(y1_bfs_1))
-
-bf1_nw <- network(friendnet3928, matrix.type = "edgelist")
-#Or we can do it by using the adjacency matrix:
-#nw2 <- network(mat, directed = TRUE)
-ggnet2(bf1_nw,
-       label = TRUE,
-       label.size = 3,
-       arrow.size = 3,
-       arrow.gap = .03)
-```
-
-```{r building network object}
-# redefining the names as characters, so that R can read them properly.
-friendnet3928 <- network3928_clean %>% 
-  select(youthidCUF, y1_bfs_1, y1_bfs_2) %>% 
-  mutate(youthidCUF = as.character(youthidCUF),
-         y1_bfs_1 = as.character(y1_bfs_1),
-         y1_bfs_2 = as.character(y1_bfs_2))
-
-nw <- network(friendnet3928, directed = TRUE, matrix.type = "edgelist")
-#Or we can do it by using the adjacency matrix:
-nw2 <- network(mat, directed = TRUE)
-```
-
-```{r network plot}
-GGally::ggnet2(nw,
-               label = TRUE,
-               label.size = 3,
-               arrow.size = 3,
-               arrow.gap = .03)
-```
-
 ### Friendship Network at School 3928 --> All 5 best friends
 Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long ([Relevant Tutorial here](https://tavareshugo.github.io/r-intro-tidyverse-gapminder/09-reshaping/index.html))
 
@@ -154,3 +114,159 @@ ggnet2(bfs_nw,
        arrow.size = 3,
        arrow.gap = .03)
 ```
+
+# count th number of mutual friends
+
+# social ties & instrumental ties
+
+# All Schools
+```{r data preprocess for all schools}
+# data only includes friendship measures
+w1_pos <- w1_yc %>% 
+  select(youthidCUF, 7:210) %>% 
+  mutate(y1_bfs_0 = as.numeric(as.character(y1_bfs_0)))
+
+# code out missing values
+w1_pos <- w1_pos %>% 
+  #labelled::to_factor() %>%  # changed labelled/haven_labelled object to factor
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame() 
+
+w1_pos[w1_pos < 0] <- NA
+
+# exclude the 4 students did not respond to best friends questions at all
+descr::freq(w1_yc$y1_bfs_0, plot=FALSE)
+descr::freq(w1_pos$y1_bfs_0, plot=FALSE)
+#na_students <- c(52280219,42110503,31080205,29840209)
+#w1_pos <- w1_pos %>% 
+#  filter(!youthidCUF %in% na_students)
+```
+
+```{r reshape data to be long format}
+w1_pos_long <- w1_pos %>% 
+  filter(!is.na(y1_bfs_0)) %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "friendid") %>% 
+  select(youthidCUF, friendid) 
+
+length(unique(w1_pos_long$youthidCUF))
+
+#no_friends <- w1_pos$youthidCUF[w1_pos$y1_bfs_0 == 1]
+#no_friends_id
+```
+
+```{r count by best friends}
+w1_bfs <- w1_pos_long %>% 
+  mutate(hasfriend = ifelse(is.na(friendid),0,1)) %>% 
+  group_by(youthidCUF) %>% 
+  summarise(num_bfs = sum(hasfriend)) 
+
+descr::freq(w1_bfs$num_bfs, plot = FALSE)
+```
+
+```{r count mutual friends}
+students <- unique(w1_bfs$youthidCUF)
+fred_mat <- as.data.frame(students) %>% 
+  mutate(n_mutual_bfs = 0)
+colnames(fred_mat)[1] <- "youthidCUF"
+
+for (i in 1 : nrow(fred_mat)) {
+  id = fred_mat[i,1]
+  dt = w1_pos_long %>% filter(youthidCUF == id)
+  bfs = unique(dt$friendid)
+  for (bf in bfs) {
+    bf_data = w1_pos_long %>% filter(youthidCUF == bf)
+    if (id %in% unique(bf_data$friendid)){
+      fred_mat[i,2] = fred_mat[i,2] + 1
+      
+    } else {next}
+  }
+}
+
+descr::freq(fred_mat$n_mutual_bfs)
+```
+
+```{r merge positive friends counts, eval=FALSE}
+w1_pos_yc <- merge(fred_mat,w1_bfs,by="youthidCUF")
+write_dta(w1_pos_yc, "Data-Stata/our_data/w1_pos_yc.dta")
+```
+
+## Friendship networks in all schools
+```{r network in all school}
+w1_pos_long_net <- w1_pos_long %>% 
+  filter(!is.na(friendid)) %>% 
+  mutate(youthidCUF = as.character(youthidCUF),
+         friendid = as.character(friendid))
+
+bfs_nw_all <- network(w1_pos_long_net[1:300,], matrix.type = "edgelist")
+#Or we can do it by using the adjacency matrix:
+#nw2 <- network(mat, directed = TRUE)
+ggnet2(bfs_nw_all,
+       size = 3,
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+## Getting network measures
+
+Plotting networks is nice, but sometimes you want to take social network measures into account for your analyses. For example, we can use social network measures as predictors of something. We will show you how to calculate a bunch of network measures and then show you how to use some in a linear regression model. We will remake our networks to be directional.
+
+#### Construct Adjacency matrix
+```{r construct adjacency matrix ALL}
+students <- unique(w1_pos_long$youthidCUF)
+mat <- matrix(0, nrow=length(students), ncol = length(students))
+colnames(mat) <- as.character(students)
+rownames(mat) <- as.character(students)
+# A glimpse of what this look lik
+mat[1:4,1:4]
+```
+
+#### Fill Adjacency Matrix
+```{r fill adjacency matrix ALL}
+i <- 1
+for (i in 1:length(students)) {
+  dt <- as.data.frame(w1_pos_long %>% filter(!is.na(friendid)))
+  row.index <- which(students == dt[i,1])
+  col.index <- which(students == dt[i,2]) # col 3 is best friends 1
+  mat[row.index, col.index] <- 1
+}
+mat[1:5,1:5]
+```
+
+#### Construct Network for All Schools
+```{r build network ALL}
+bfs_nw_all <- network(mat, 
+                      matrix.type = "adjacency",
+                      ignore.eval=FALSE,
+                      names.eval="true")
+```
+
+### Density
+The function `gden()` returns how dense a network is. If there are many ties the network is called dense. If there are few ties the network is called sparse. `gden()` returns **the sum of tie values by the number of possible ties.** For binary data it thus reflects the proportion of ties of all possible ties and for valued data it reflects the average strength of all possible ties.
+```{r network density}
+gden(bfs_nw_all)
+```
+
+### Transitivity
+Transitivity is a measure that reflects **to what extent nodes in networks are connected by shared connections.** For example, in friendship networks we often see that friends of friends are often friends too. You can get this measure with `gtrans()`
+```{r transitivity}
+gtrans(bfs_nw_all)
+```
+
+### Centrality
+
+There are many measures of centrality. They can be **on the network level** or **on the node level**. A general network level indication of **how centralized a network is the Freeman measure of centrality.**
+
+For individual nodes, you can use the `degree()` command. Same here.
+```{r node centrality,eval=FALSE}
+degree(bfs_nw_all, cmode = "indegree")
+degree(bfs_nw_all, cmode = "outdegree")
+degree(bfs_nw_all)
+```
+
+
+
