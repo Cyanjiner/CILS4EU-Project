@@ -1,0 +1,69 @@
+---
+title: "Negative Ties"
+output: html_document
+date: "2023-01-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message = FALSE, warning = FALSE)
+```
+
+## R Markdown
+
+
+```{r cars}
+library(tidyverse)
+library(dplyr)
+library(labelled)
+```
+
+# Data Preprocessig Steps
+
+
+```{r data preprocess}
+w1_class <- w1_yc |> 
+  select(youthidCUF, 4:210)
+
+# code out missing values
+w1_class_clean <- w1_class |>
+  #labelled::to_factor() |>  # changed labelled/haven_labelled object to factor
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame()
+
+w1_satisfaction <- w1_ym |> 
+  select(youthidCUF, y1_sat2) |> 
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame()
+  
+```
+
+```{r}
+
+w1_negative_outgoing_ties <- w1_class_clean |> 
+  select(youthidCUF,starts_with("y1_sit")) |> 
+  mutate(across(starts_with("y1_sit"), ~ case_when(. == -77 ~ 0,
+                                                  . == -88 ~ 0,
+                                                  . > 0 ~ 1,
+                                                  TRUE ~ .))) |> 
+  group_by(youthidCUF) |> 
+  mutate(number_outgoing_negative = sum(y1_sit_1 + y1_sit_2 + y1_sit_3 + y1_sit_4 + y1_sit_5)) 
+
+negative_outgoing_satisfaction <- full_join(w1_negative_outgoing_ties, w1_satisfaction) |> 
+  rename(satisfaction = y1_sat2)
+model_1 <-lm(formula =  satisfaction ~ 1 + number_outgoing_negative, data = negative_outgoing_satisfaction)
+summary(model_1)
+
+```
+
+```{r}
+w1_negative_incoming_ties <- w1_class_clean |> 
+  select(youthidCUF,starts_with("y1_sit")) |> 
+  ....
+
+negative_incoming_satisfaction <- full_join(w1_negative_incoming_ties, w1_satisfaction) |> 
+  rename(satisfaction = y1_sat2)
+
+model_2 <-lm(formula =  satisfaction ~ 1 + number_outgoing_negative, data = negative_outgoing_satisfaction)
+summary(model_1)
+```
+
