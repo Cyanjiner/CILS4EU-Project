@@ -26,20 +26,43 @@ w1_satisfaction_predictors <- haven::read_dta("Data-Stata/our_data/w1_pos_neg_yc
 
 
 ```{r pressure, echo=FALSE}
-##CLEAN DATA HERE (E.G., GET RID OF NA'S WHEN YOU HAVE TIME; WILL HELP THE VISUALIZATIONS)
+##CLEAN DATA HERE (recode all negative values as NAs)
+w1_satisfaction_predictors_clean <- w1_satisfaction_predictors |> 
+  select(youthidCUF, number_negative_incoming, number_outgoing_negative, satisfaction, num_bfs, n_mutual_bfs) |> 
+  mutate(across(where(is.numeric), ~ case_when(. < 0 ~ NA_real_,
+                                                TRUE ~ .)))
 
-ggplot(aes(x = satisfaction), data = w1_satisfaction_predictors)+
+ggplot(aes(x = satisfaction), data = w1_satisfaction_predictors_clean)+
   geom_histogram()
 
-ggplot(aes(x = number_negative_incoming), data = w1_satisfaction_predictors)+
+ggplot(aes(x = number_negative_incoming), data = w1_satisfaction_predictors_clean)+
   geom_histogram()
 
-ggplot(aes(x = number_outgoing_negative), data = w1_satisfaction_predictors)+
+ggplot(aes(x = number_outgoing_negative), data = w1_satisfaction_predictors_clean)+
   geom_histogram()
 
-ggplot(aes(x = satisfaction), data = w1_satisfaction_predictors)+
+ggplot(aes(x = n_mutual_bfs), data = w1_satisfaction_predictors_clean)+
   geom_histogram()
 
+ggplot(aes(x = num_bfs), data = w1_satisfaction_predictors_clean)+
+  geom_histogram()
+
+
+```
+
+
+```{r}
+ggplot(aes(x = number_negative_incoming, y = satisfaction), data = w1_satisfaction_predictors_clean)+
+  stat_summary(fun = "mean", geom = "line")
+
+ggplot(aes(x = number_outgoing_negative, y = satisfaction), data = w1_satisfaction_predictors_clean)+
+  stat_summary(fun = "mean", geom = "line")
+
+ggplot(aes(x = num_bfs, y = satisfaction), data = w1_satisfaction_predictors_clean)+
+  stat_summary(fun = "mean", geom = "line")
+
+ggplot(aes(x = n_mutual_bfs, y = satisfaction), data = w1_satisfaction_predictors_clean)+
+  stat_summary(fun = "mean", geom = "line")
 
 ```
 
