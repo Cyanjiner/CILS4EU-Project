@@ -15,9 +15,12 @@ knitr::opts_chunk$set(echo = TRUE,message = FALSE, warning = FALSE)
 library(tidyverse)
 library(dplyr)
 library(labelled)
+<<<<<<< HEAD:Negative Social Ties vs satisfaction.Rmd
 library(janitor)
 library(pastecs)
 
+=======
+>>>>>>> parent of 797f006 (created vars for negative ties and ran linear regressions):Negative Ties Variable Creation.Rmd
 ```
 
 # Data Preprocessig Steps
@@ -69,53 +72,13 @@ summary(model_2)
 
 ```{r}
 w1_negative_incoming_ties <- w1_class_clean |> 
-  select(youthidCUF,starts_with("y1_sit"))  
-  #mutate(numer_incoming_negative += if youthidCUF %in% start_with("y1_sit"))
-
-
-number_negative_incoming = replicate(dim(w1_negative_incoming_ties)[1], 0)
-index = 0
-ids = replicate(dim(w1_negative_incoming_ties)[1], 0)
-for(i in w1_negative_incoming_ties$youthidCUF){
-  for(k in w1_negative_incoming_ties$y1_sit_1){
-    if (i == k){
-      number_negative_incoming[index] = number_negative_incoming[index]+1
-    }
-  }
-  for(l in w1_negative_incoming_ties$y1_sit_2){
-    if (i == l){
-      number_negative_incoming[index] = number_negative_incoming[index]+1
-    }
-  }
-  for(m in w1_negative_incoming_ties$y1_sit_3){
-    if (i == m){
-      number_negative_incoming[index] = number_negative_incoming[index]+1
-    }
-  }
-  for(n in w1_negative_incoming_ties$y1_sit_4){
-    if (i == n){
-      number_negative_incoming[index] = number_negative_incoming[index]+1
-    }
-  }
-  for(p in w1_negative_incoming_ties$y1_sit_5){
-    if (i == p){
-      number_negative_incoming[index] = number_negative_incoming[index]+1
-    }
-  }
-  index = index + 1
-  ids[index] = i
-}
-
-number_neg <- cbind(ids, number_negative_incoming)
-number_neg <- data.frame(number_neg) |> 
-  rename(youthidCUF = ids)
-
-w1_negative_incoming_ties <- full_join(number_neg, w1_negative_incoming_ties)
+  select(youthidCUF,starts_with("y1_sit")) |> 
+  ....
 
 negative_incoming_satisfaction <- full_join(w1_negative_incoming_ties, w1_satisfaction) |> 
   rename(satisfaction = y1_sat2)
 
-model_2 <-lm(formula =  satisfaction ~ 1 + number_negative_incoming, data = negative_incoming_satisfaction)
-summary(model_2)
+model_2 <-lm(formula =  satisfaction ~ 1 + number_outgoing_negative, data = negative_outgoing_satisfaction)
+summary(model_1)
 ```
 
