@@ -5,7 +5,7 @@ date: "2023-01-27"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ## R Markdown
@@ -18,6 +18,7 @@ library(labelled)
 library(janitor)
 library(pastecs)
 library(haven)
+library(readstata13)
 
 w1_satisfaction_predictors <- haven::read_dta("Data-Stata/our_data/w1_pos_neg_yc_predictors.dta")
 ```
@@ -51,7 +52,7 @@ ggplot(aes(x = num_bfs), data = w1_satisfaction_predictors_clean)+
 ```
 
 
-```{r}
+```{r plots }
 ggplot(aes(x = number_negative_incoming, y = satisfaction), data = w1_satisfaction_predictors_clean)+
   stat_summary(fun = "mean", geom = "line")
 
@@ -65,46 +66,81 @@ ggplot(aes(x = n_mutual_bfs, y = satisfaction), data = w1_satisfaction_predictor
   stat_summary(fun = "mean", geom = "line")
 
 ```
-```{r}
+```{r GLM model}
 model_4 <-glm(formula =  satisfaction ~ 1 + num_bfs+n_mutual_bfs+number_outgoing_negative+number_negative_incoming, data = w1_satisfaction_predictors_clean, family = poisson)
 summary(model_4)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
-### Add positive friendship network measure
-```{r}
+### Add positive & negative friendship network measure
+```{r import and merge network}
 # import positive network measure
 w1_pos_netm <- read.dta13("Data-Stata/our_data/w1_pos_netm.dta",convert.factors =F)
-names(w1_pos_netm)[1:2] <- c("youthidCUF","classidCUF")
+names(w1_pos_netm)[1:5] <- c("youthidCUF","classidCUF","pos_indegree","pos_outdegree","pos_isolate")
 
-w1_satisfaction_predictors_clean <- merge(w1_satisfaction_predictors_clean, w1_pos_netm[,1:5], by = "youthidCUF")
+# import negative network measure
+w1_neg_netm <- read.dta13("Data-Stata/our_data/w1_neg_netm.dta",convert.factors =F)
+names(w1_neg_netm)[1:2] <- c("youthidCUF","classidCUF")
+
+# merge negative & positive
+w1_netm <- merge(w1_neg_netm[,1:5], w1_pos_netm[,1:5], by = c("youthidCUF","classidCUF"), all.x = TRUE) 
+
+# merge complete network with outcome data
+w1_satisfaction_predictors_clean <- merge(w1_satisfaction_predictors_clean, w1_netm, by = "youthidCUF")
 ```
 
-#### Regression models exploration with positive friendshio network measures
+#### Regression models exploration with positive friendship network measures
 ##### Positive Indegree vs. Satisfaction
-```{r}
-summary(lm(satisfaction ~ indegree, data = w1_satisfaction_predictors_clean))
+```{r positive indegree}
+summary(lm(satisfaction ~ pos_indegree, data = w1_satisfaction_predictors_clean))
 ```
 
 ##### Positive Outdegree vs. Satisfaction
-```{r}
-summary(lm(satisfaction ~ outdegree, data = w1_satisfaction_predictors_clean))
+```{r positive outdegree}
+summary(lm(satisfaction ~ pos_outdegree, data = w1_satisfaction_predictors_clean))
 ```
 
 ##### Positive Isolate vs. Satisfaction
-```{r}
-summary(lm(satisfaction ~ isolate, data = w1_satisfaction_predictors_clean))
+```{r positive isolate}
+summary(lm(satisfaction ~ pos_isolate, data = w1_satisfaction_predictors_clean))
 ```
 
-##### Do adolescents with smaller networks have worse school satisfaction?
-```{r}
-summary(lm(satisfaction ~ indegree + outdegree + isolate, data=w1_satisfaction_predictors_clean))
+##### Do adolescents with smaller Positive networks have worse school satisfaction?
+```{r positive network}
+summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate, data=w1_satisfaction_predictors_clean))
+```
+
+
+#### Regression models exploration with negative friendship network measures
+##### Negative Indegree vs. Satisfaction
+```{r negative indegree}
+summary(lm(satisfaction ~ neg_indegree, data = w1_satisfaction_predictors_clean))
+```
+
+##### Negative Outdegree vs. Satisfaction
+```{r Negative outdegree}
+summary(lm(satisfaction ~ neg_outdegree, data = w1_satisfaction_predictors_clean))
+```
+
+##### Negative Isolate vs. Satisfaction
+```{r negative isolate}
+summary(lm(satisfaction ~ neg_isolate, data = w1_satisfaction_predictors_clean))
+```
+
+##### Do adolescents with smaller Negative networks have worse school satisfaction?
+```{r Negative network}
+summary(lm(satisfaction ~ neg_indegree + neg_outdegree + neg_isolate, data=w1_satisfaction_predictors_clean))
+```
+
+#### Regression models with both Positive & Negative measures
+```{r Negative and Positive network}
+summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate, data=w1_satisfaction_predictors_clean))
 ```
 
 ##### What if fixed effects classes?
-```{r}
+```{r fixed class pos network}
 w1_satisfaction_predictors_clean$classid.f <- as.factor(w1_satisfaction_predictors_clean$classidCUF)
-summary(lm(satisfaction ~ indegree + outdegree + isolate + classid.f, data=w1_satisfaction_predictors_clean))
+summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + classid.f, data=w1_satisfaction_predictors_clean))
 ```
 
