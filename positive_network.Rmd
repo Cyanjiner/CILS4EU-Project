@@ -1,0 +1,144 @@
+---
+title: "friends_network"
+output: html_document
+date: "2023-01-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message=FALSE)
+```
+```{r}
+library(dplyr)
+library(readstata13)
+library(tidyverse)
+library(sna)
+library(GGally)
+```
+
+## Positive Friendship Network
+```{r data preprocessing}
+w1_yc <- read.dta13("Data-Stata/our_data/w1_yc.dta",convert.factors =F)
+class1 <- w1_yc %>% 
+  select(-y1_intdat_ycRV, -y1_vers_yc)
+# look at the structur of data
+#str(w1_class)
+```
+
+In Sanne's code: 
+"# add health students mention on average 6 or 7 friends. 
+ # but these are american students who have lower thresholds fo friendship nominations
+ # drop cases according to Kruse & Jacobs
+Q: do we also want to drop these cases?
+```{r drop cases according to Kruse & Jacobs}
+# add health students mention on average 6 or 7 friends. 
+# but these are american students who have lower thresholds for friendship nominations
+# drop cases according to Kruse & Jacobs
+class1$n <- 1
+myvars <- c("n", "y1_nnomineeG")
+npupils <- aggregate(class1[myvars], sum, by = list(class1$classidCUF))
+keep <- npupils[npupils$n > 10 & npupils$y1_nnomineeG <=4, 1]
+
+class1 <- class1[class1$classid %in% keep, ]
+class1 <- class1[class1$y1_classid_matchG == 1, ]
+class1 <- class1[class1$y1_p_participantsG >= .75, ]
+class1 <- class1[class1$y1_p_invalidnomsG <= .1, ]
+```
+
+```{r select positive friendship measures}
+# code out missing values
+# select friendship measures and set missing values to NA
+pos_vars <- c("y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
+class1[pos_vars][class1[pos_vars] < 0] <- NA
+descr::freq(class1$y1_bfs_0)
+```
+
+Q: For those who did not report having best friend in class, do we remove them or include them and make their # class best friends = 0?
+```{r reshape to long}
+# reshape to long
+class1.l <- class1 %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "alteridCUF") %>% 
+  select(youthidCUF, alteridCUF) %>% 
+  na.omit() # remove NAs for building network
+
+### Sanne's code
+#myvars <- c("youthidCUF", "y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
+#class1.l <- reshape(class1[myvars], varying = myvars[-1], v.names = "alterid", timevar = "friend", idvar = "youthidCUF", times =myvars[-1], direction = "long")
+```
+
+```{r data preprocess for network}
+myids <- as.data.frame(unique(class1[c("youthidCUF","classidCUF")]))
+classids <- unique(class1$classidCUF)
+class1.l <- merge(class1.l, myids, by = "youthidCUF", all.x = TRUE)
+classids <- unique(class1.l$classid)
+
+nclass <- length(unique(class1.l$classid))
+nclass
+
+# make sure you take only the last two digits of youthid otherwise sna
+# thinks that there are a thousand actors
+class1.l <- class1.l %>% 
+  mutate(youthid = youthidCUF %% 100,
+         alterid = alteridCUF %% 100) %>% 
+  select(youthid, alterid, classidCUF)
+```
+
+```{r make network for each class}
+el.list <- list()
+class.list <- list()
+
+for (i in 1:nclass){
+  el.list[[i]] <- class1.l[class1.l$classidCUF == classids[i],]
+  class.list[[i]] <- classids[i]
+}
+
+net.list <- lapply(el.list, as.network.matrix, matrix.type = "edgelist", 
+ ignore.eval = FALSE, names.eval = "classidCUF")	
+```
+
+### Visualization of network 1 -- classidCUF 102001
+Q:
+```{r network viz}
+ggnet2(net.list[[1]],
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+### Calculate positive friendship network measures 
+```{r network measures}
+mat.list <- lapply(net.list, as.matrix)
+indegree.list <- lapply(mat.list, degree, cmode = "indegree", gmode = "digraph", diag = FALSE)
+outdegree.list <- lapply(mat.list, degree, cmode = "outdegree", gmode = "digraph", diag = FALSE)
+#bonpow.list <- lapply(mat.list, bonpow, diag = FALSE)
+  # error? singular?
+```
+```{r unlist network measures}
+a.list <- lapply(net.list, get.vertex.attribute, "vertex.names")
+netm <- mapply(cbind, a.list, class.list, indegree.list, outdegree.list)
+netm <- lapply(netm, as.data.frame)
+netm <- as.data.frame(do.call(rbind, netm))
+names(netm) <- c("youthid", "classid", "indegree", "outdegree")
+
+# computate isolate measure
+netm <- netm %>% 
+  mutate(isolate = ifelse(indegree == 0 & outdegree == 0, 1, 0),
+         youthid_chr = as.character(youthid),
+         classid_chr = as.character(classid),
+         youthid_nchr = nchar(youthid_chr) # count the number of characters
+         )
+
+# add 0 to single digit youthid
+netm$youthid_chr[netm$youthid_nchr == 1] <- paste0("0", netm$youthid_chr[netm$youthid_nchr == 1])
+
+# change to numeric youthid
+netm$youthid <- as.numeric(paste0(netm$classid_chr, netm$youthid_chr))
+```
+
+```{r save positive friendship network, eval=FALSE}
+haven::write_dta(netm, "Data-Stata/our_data/w1_pos_netm.dta")
+```
+

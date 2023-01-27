@@ -71,3 +71,40 @@ summary(model_4)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+### Add positive friendship network measure
+```{r}
+# import positive network measure
+w1_pos_netm <- read.dta13("Data-Stata/our_data/w1_pos_netm.dta",convert.factors =F)
+names(w1_pos_netm)[1:2] <- c("youthidCUF","classidCUF")
+
+w1_satisfaction_predictors_clean <- merge(w1_satisfaction_predictors_clean, w1_pos_netm[,1:5], by = "youthidCUF")
+```
+
+#### Regression models exploration with positive friendshio network measures
+##### Positive Indegree vs. Satisfaction
+```{r}
+summary(lm(satisfaction ~ indegree, data = w1_satisfaction_predictors_clean))
+```
+
+##### Positive Outdegree vs. Satisfaction
+```{r}
+summary(lm(satisfaction ~ outdegree, data = w1_satisfaction_predictors_clean))
+```
+
+##### Positive Isolate vs. Satisfaction
+```{r}
+summary(lm(satisfaction ~ isolate, data = w1_satisfaction_predictors_clean))
+```
+
+##### Do adolescents with smaller networks have worse school satisfaction?
+```{r}
+summary(lm(satisfaction ~ indegree + outdegree + isolate, data=w1_satisfaction_predictors_clean))
+```
+
+##### What if fixed effects classes?
+```{r}
+w1_satisfaction_predictors_clean$classid.f <- as.factor(w1_satisfaction_predictors_clean$classidCUF)
+summary(lm(satisfaction ~ indegree + outdegree + isolate + classid.f, data=w1_satisfaction_predictors_clean))
+```
+
