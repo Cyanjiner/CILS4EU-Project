@@ -65,5 +65,9 @@ ggplot(aes(x = n_mutual_bfs, y = satisfaction), data = w1_satisfaction_predictor
   stat_summary(fun = "mean", geom = "line")
 
 ```
+```{r}
+model_4 <-glm(formula =  satisfaction ~ 1 + num_bfs+n_mutual_bfs+number_outgoing_negative+number_negative_incoming, data = w1_satisfaction_predictors_clean, family = poisson)
+summary(model_4)
+```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
