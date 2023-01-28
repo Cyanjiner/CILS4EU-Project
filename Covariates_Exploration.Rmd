@@ -20,7 +20,7 @@ w1_ym <- read.dta13("Data-Stata/our_data/w1_ym.dta", convert.factors = F)
 ```
 
 ```{r include vars}
-covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_migage","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_pmon","y1_pmonwRV","y1_pmonmRV","y1_fact","y1_sat2")
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2")
 
 main1 <- w1_ym[covars]
 main1[main1 < 0] <- NA 
@@ -67,7 +67,7 @@ main1 <- main1 %>%
 
 #### Migration age --- `y1_migage` (how old were you when you moved to [survey country]?)
 
-#### Nationality --- `y1_nationRV` 
+#### Nationality --- `y1_nationRV`
 
 -   1 = Only survey country nationality
 
@@ -115,7 +115,7 @@ main1 <- main1 %>%
 
 ##### `y1_del1 : y1_del4` --- Delinquent behavior I : IV
 
-### Family 
+### Family
 
 #### Family Relation
 
@@ -125,15 +125,22 @@ main1 <- main1 %>%
 
 ##### `y1_contf` --- how often do you usually see your father?
 
-##### `y1_gawf` --- how well do you get along with your  father?
+##### `y1_gawf` --- how well do you get along with your father?
 
 #### Economic Situation
 
 ##### `y1_pmon| y1_pmonwRV | y1_pmonmRV` --- Pocket money (general / weekly / monthly amount)
 
-`y1_pmon` -- Do you get pocket money from your parents?
--   1 = yes, each week
--   2 = yes, each month
--   3 = 
+`y1_pmon` -- Do you get pocket money from your parents? - 1 = yes, each week - 2 = yes, each month - 3 =
 
 ##### `y1_fact` --- can't afford friends' activities
+
+### Add Some Demo covariates to our model
+```{r}
+
+w1_predictors_clean <- read.dta13("Data-Stata/our_data/w1_predictors_clean.dta", convert.factors = F)
+main2 <- w1_ym[covars]
+main2[main2 < 0] <- NA
+main2 <- merge(main2, w1_predictors_clean)
+summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs + as.factor(classidCUF) +  as.factor(y1_nationRV) + as.factor(schtype_geRV) + as.factor(y1_sex), data=main2))
+```
