@@ -171,4 +171,3 @@ cor(w1_satisfaction_predictors_clean$n_mutual_bfs, w1_satisfaction_predictors_cl
 
 ```
 
-
