@@ -1,0 +1,139 @@
+---
+title: "Covariate Exploration"
+output: html_document
+date: "2023-01-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## R Markdown
+
+```{r import network data}
+library(dplyr)
+library(tidyverse)
+library(readstata13)
+library(ggplot2)
+w1_netm <- read.dta13("Data-Stata/our_data/w1_netm.dta", convert.factors = F)
+w1_ym <- read.dta13("Data-Stata/our_data/w1_ym.dta", convert.factors = F)
+```
+
+```{r include vars}
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_migage","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_pmon","y1_pmonwRV","y1_pmonmRV","y1_fact","y1_sat2")
+
+main1 <- w1_ym[covars]
+main1[main1 < 0] <- NA 
+```
+
+```{r}
+ggplot(data=main1)+
+  geom_density(aes(x=y1_pmonwRV),na.rm = TRUE)
+```
+
+```{r}
+main1 <- merge(main1, w1_netm, by = "youthidCUF")
+
+# change gender/ nationality / school type as factor
+main1 <- main1 %>% 
+  mutate(sex = as.factor(y1_sex),
+         schooltype = as.factor(schtype_geRV),
+         nationality = as.factor(y1_nationRV))
+```
+
+### Demographics & School-related Variables
+
+#### School Type (Germany) --- `schtype_geRV`
+
+-   1 = Lower secondary school
+
+-   2 = School combining several tracks
+
+-   3 = Intermediate secondary school
+
+-   4 = Comprehensive school / Rudolf-Steiner School
+
+-   5 = Upper secondary school
+
+-   6 = School for special needs
+
+#### Gender --- `y1_sex`
+
+-   1 = Boy
+
+-   2 = Girl
+
+#### Age --- `y1_doby` (when were you born? Year)
+
+#### Migration age --- `y1_migage` (how old were you when you moved to [survey country]?)
+
+#### Nationality --- `y1_nationRV` 
+
+-   1 = Only survey country nationality
+
+-   2 = Survey country and other nationality
+
+-   3 = Only other nationality
+
+#### Language
+
+##### `y1_lpsc1` How well can you speak German [survey country language] ?
+
+-   1 = Not at all
+
+-   2 = Not well
+
+-   3 = Well
+
+-   4 = Very well
+
+-   5 = Excellently
+
+##### `y1_lpsc2` How well can you understand German?
+
+##### `y1_lpsc3` read German \| `y1_lpsc4` write German
+
+#### Problem behavior / Deviance & Delinquency at school
+
+##### `y1_pbsch1` How often do you argue with teacher?
+
+-   1 = every day
+
+-   2 = once or several times a week
+
+-   3 = once or several times a month
+
+-   4 = less often
+
+-   5 = never
+
+##### `y1_pbsch2` --- how often do you get a punishment in school (e.g. being kept in detention, sent out of class, writing lines)?
+
+##### `y1_pbsch3` --- how often do you skip a lesson without permission?
+
+##### `y1_pbsch4` --- how often do you come late to school?
+
+##### `y1_del1 : y1_del4` --- Delinquent behavior I : IV
+
+### Family 
+
+#### Family Relation
+
+##### `y1_contm` --- how often do you usually see your mother?
+
+##### `y1_gawm` --- how well do you get along with your mother?
+
+##### `y1_contf` --- how often do you usually see your father?
+
+##### `y1_gawf` --- how well do you get along with your  father?
+
+#### Economic Situation
+
+##### `y1_pmon| y1_pmonwRV | y1_pmonmRV` --- Pocket money (general / weekly / monthly amount)
+
+`y1_pmon` -- Do you get pocket money from your parents?
+-   1 = yes, each week
+-   2 = yes, each month
+-   3 = 
+
+##### `y1_fact` --- can't afford friends' activities
