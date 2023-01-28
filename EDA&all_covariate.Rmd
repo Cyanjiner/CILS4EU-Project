@@ -1,0 +1,326 @@
+---
+title: "EDA & Data Manipulation -- More Covariates"
+output: html_document
+date: "2023-01-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Exploratory Data Analysis and More Data Manipulation
+
+```{r import network data}
+library(dplyr)
+library(tidyverse)
+library(readstata13)
+library(ggplot2)
+w1_netm <- read.dta13("Data-Stata/our_data/w1_netm.dta", convert.factors = F)
+w1_ym <- read.dta13("Data-Stata/our_data/w1_ym.dta", convert.factors = F)
+```
+
+```{r include vars}
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3")
+
+# deviance and delinquency in school -- y1_pbsch1 : y1_del4
+# perceived victim / discrimination in school -- y1_vict1 : y1_pdisc4
+# romantic relationship -- y1_date (currently dating?)
+# family relations -- y1_contm : y1_contf
+# parental encouragement -- y1_penc1 : y1_penc3
+# family cohesion -- y1_fcoh1 : y1_fcoh5
+# parenting style -- demandingness -- y1_pdem1:y1_pdem7
+# parenting style -- involvement -- y1_pinv1:y1_pinv3
+
+# well-being
+# self esteem -- y1_sest1:y1_sest4
+
+# attitudes toward school
+# teachers encouragement y1_tenc1 : y1_tenc3
+
+main1 <- w1_ym[covars]
+main1 <- w1_ym %>% 
+  select(youthidCUF, classidCUF, schoolidCUF, schtype_geRV,
+         y1_sex, y1_doby, y1_nationRV, y1_lpsc1:y1_lpsc4, 
+         y1_fact, y1_sat2, y1_sat1, y1_pbsch1:y1_pbsch4, 
+         y1_del1:y1_del4, y1_vict1:y1_vict3,y1_pdisc1:y1_pdisc4,
+         y1_date, y1_contm,y1_gawm, y1_contf, y1_gawf, 
+         y1_penc1:y1_penc3, y1_fcoh1:y1_fcoh5, y1_pdem1:y1_pdem7,
+         y1_pinv1:y1_pinv3, y1_sest1:y1_sest4,
+         y1_tenc1:y1_tenc3
+         )
+
+main1[main1 < 0] <- NA 
+main1$age <- 2010 - main1$y1_doby
+main1 <- merge(main1, w1_netm, by = c("youthidCUF","classidCUF"))
+
+write_csv(main1,"Data-Stata/our_data/all_data.csv")
+```
+
+#### School Type (Germany) --- `schtype_geRV`
+
+-   1 = Lower secondary school
+
+-   2 = School combining several tracks
+
+-   3 = Intermediate secondary school
+
+-   4 = Comprehensive school / Rudolf-Steiner School
+
+-   5 = Upper secondary school
+
+-   6 = School for special needs
+
+```{r school type}
+# univariate analysis of school type
+descr::freq(main1$schtype_geRV)
+```
+
+## Cultural Integration
+### Language measures -- proficiency in survey country language (German)
+-   5-point Likert type (1 = Not at all, 2 = Not well ... 5 = Excellently)
+-   four sub-measures regarding speak, read, write, understand
+
+Data manipulation --> recode them into 0 to 4 for each measure and sum them up
+```{r language}
+# recode multiple variables whose levels are 1 to 5 into 0 to 4
+main2 <- main1 %>% 
+  mutate_at(vars(y1_lpsc1:y1_lpsc4), funs(.-1))
+
+# check summary stats 
+print("Before recoding")
+summary((main1 %>% select(y1_lpsc1:y1_lpsc4)))
+print("After recoding")
+summary((main2 %>% select(y1_lpsc1:y1_lpsc4)))
+
+main2 <- main2 %>% 
+  mutate(language = y1_lpsc1 + y1_lpsc2 + y1_lpsc3 + y1_lpsc4)
+descr::freq(main2$language)
+```
+
+## Socio-Demography and Migration
+### Gender --- `y1_sex`
+
+-   1 = Boy
+
+-   2 = Girl
+
+```{r gender type}
+# add factor variable of gender
+main2$gender = ifelse(main2$y1_sex == 1, "Boy", "Girl")
+descr::freq(main2$gender, plot = FALSE)
+```
+
+### Age --- `y1_doby` (when were you born? Year)
+```{r age}
+descr::freq(main2$age, plot = FALSE)
+```
+
+### Nationality --- `y1_nationRV` 
+
+-   1 = Only survey country nationality
+
+-   2 = Survey country and other nationality
+
+-   3 = Only other nationality
+
+```{r nationality}
+main2 <- main2 %>% 
+  mutate(nationality = case_when(
+    y1_nationRV == 1 ~ "German only",
+    y1_nationRV == 2 ~ "German and other nationality",
+    y1_nationRV == 3 ~ "Only other nationality",),
+    nationality = factor(nationality, 
+                            levels=c("German only",
+                                     "German and other nationality",
+                                     "Only other nationality")))
+
+# check for recoding
+print("Before recoding")
+descr::freq(main1$y1_nationRV,plot = FALSE)
+print("After recoding")
+descr::freq(main2$nationality,plot = FALSE)
+```
+
+##### Correlation Matrix
+
+```{r corr,eval=FALSE}
+library(corrplot)
+library(Hmisc)
+
+mydata.cor = cor(na.omit(main1[,-c(1:3,6)]), method = c("spearman"))
+mydata.cor
+corrplot(mydata.cor, method = "color")
+```
+
+##### Summary Statistics
+```{r, eval=FALSE}
+# change gender/ nationality / school type as factor
+summary(main1 %>% 
+  mutate(classidCUF = as.factor(classidCUF),
+         schoolidCUF = as.factor(schoolidCUF),
+         y1_sex = as.factor(y1_sex),
+         schtype_geRV = as.factor(schtype_geRV),
+         y1_nationRV = as.factor(y1_nationRV),
+         y1_fact = as.factor(y1_fact)) %>% 
+  select(-youthidCUF))
+```
+
+## Economic situation
+### `y1_fact` --- can't afford friends' activities
+-   1 = Always
+-   2 = Often
+-   3 = Sometimes
+-   4 = Never
+
+Note that high values in this variable represent low economic situation
+```{r eco}
+descr::freq(main1$y1_fact, plot = FALSE)
+```
+
+## Structual Integration
+### Deviance & Delinquency at school
+#### `y1_pbsch1` How often do exihibit following problem behaviors in school?
+
+argue with teacher | get a punishment in school (e.g. being kept in detention, sent out of class, writing lines) | skip a lesson without permission? | come late to school?
+
+Response:
+-   1 = every day
+
+-   2 = once or several times a week
+
+-   3 = once or several times a month
+
+-   4 = less often
+
+-   5 = never
+```{r problem behaviors}
+
+# recoding problem behavioral measures
+main2 <- main2 %>% 
+  mutate_at(vars(y1_pbsch1:y1_pbsch4), ~ 5-.) %>% 
+  mutate(problem_behaviors = y1_pbsch1 + y1_pbsch2 + y1_pbsch3 + y1_pbsch4)
+# check before recoding
+print("Before recoding")
+descr::freq(main1$y1_pbsch1, plot = FALSE)
+print("After recoding")
+descr::freq(main2$y1_pbsch1, plot = FALSE)
+print("Frequency of problem behaviors")
+descr::freq(main2$problem_behaviors)
+```
+
+#### `y1_del1` --- Delinquent behavior: Deliberately damaged things that were not yours
+-   1 = yes
+-   2 = no
+#### `y1_del2` --- Delinquent behavior: Stolen something from a shop/from someone else?
+#### `y1_del3` --- Delinquent behavior: Carried a knife or weapon
+#### `y1_del1` --- Delinquent behavior: Been very drunk
+```{r delinquency behavior}
+main2 <- main2 %>% 
+  mutate_at(vars(y1_del1:y1_del4), 
+            funs(replace(., . == 2,0)))
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_del1:y1_del4), as.factor) %>% select(y1_del1 : y1_del4))
+
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_del1:y1_del4), as.factor) %>% select(y1_del1 : y1_del4))
+
+# if or not they have delinquency behavior
+main2 <- main2 %>% 
+  mutate(delinquency_history = ifelse(rowSums(
+    select(.,y1_del1:y1_del4) == 1) > 0,
+    'yes','no'),
+    delinquency_count = y1_del1 + y1_del2 + y1_del3 + y1_del4)
+
+print("Delinquency history frequency")
+descr::freq(main2$delinquency_history,plot = FALSE)
+print("Delinquency count frequency")
+descr::freq(main2$delinquency_count,plot = FALSE)
+```
+
+### Discrimination at school
+Note that we donnot use perceived discrimination measures as they occur outside school setting!
+#### `y1_vict1:y1_vict3` -- Victim at school following types:
+scared of other students | teased by other students | bullied by other students 
+
+Responses:
+-   1 = every day
+-   2 = once or several times a week
+-   3 = less often
+-   4 = never
+```{r victim}
+main2 <- main2 %>%
+  mutate_at(vars(y1_vict1:y1_vict3),  ~4-.)
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+
+main2 <- main2 %>% 
+  mutate(victim_history = ifelse(rowSums(
+    select(.,y1_vict1:y1_vict3) == 1) > 0,
+    1,0)) %>% 
+  mutate_at(vars(y1_vict1:y1_vict3), 
+         funs(ifelse(. == 3, 5, # every day
+                     ifelse(. == 2, 4, # once or several times a week
+                            ifelse(. == 1, 2, .) # less often
+                            )
+                     )
+              )
+         ) # never
+main2 <- main2 %>% 
+  mutate(victim_history_score = y1_vict1 + y1_vict2 + y1_vict3)
+descr::freq(main2$victim_history,plot = FALSE)
+descr::freq(main2$victim_history_score)
+print("After recoding stage two")
+summary(main2 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+```
+
+
+### Family 
+
+#### Family Relation
+##### `y1_gawm | y1_gawf` --- how well do you get along with your mother/father?
+-   1 = every very well
+-   2 = well
+-   3 = not so well
+-   4 = not well at all
+```{r parents relation}
+# if or not they have delinquency behavior
+main2 <- main2 %>% 
+  mutate_at(vars(y1_gawm,y1_gawf), ~4-.) %>% 
+  mutate(parent_relation = round((y1_gawf + y1_gawm)/2)) # average score of how well they get along with parents
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_gawm,y1_gawf), as.factor) %>% select(y1_gawm,y1_gawf))
+
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_gawm,y1_gawf), as.factor) %>% select(y1_gawm,y1_gawf))
+
+print("Parental relation")
+descr::freq(main2$parent_relation,plot = FALSE)
+```
+
+
+## School satisfication
+```{r outcome}
+descr::freq(main2$y1_sat2)
+```
+
+### Self-esteem
+#### `y1_sest1:y1_sest4` following measures:
+I have a lot of good qualities | have a lot to be proud of | like myself just the way I am | think things will go well for me in the future 
+
+Response:
+-   1 = strongly agree
+-   2 = agree
+-   3 = neither agree nor disagree
+-   4 = disagree
+-   5 = strongly disagree
+
+```{r save as json file, eval=FALSE}
+jsonlite::write_json(main2, "Data-Stata/our_data/CILS4EU.json")
+write_csv(main2, "Data-Stata/our_data/all_main.csv")
+```
+
