@@ -127,6 +127,10 @@ summary(lm(satisfaction ~ neg_outdegree, data = w1_satisfaction_predictors_clean
 ```{r negative isolate}
 summary(lm(satisfaction ~ neg_isolate, data = w1_satisfaction_predictors_clean))
 ```
+### Mutual bfs versus satisfaction 
+```{r}
+summary(lm(satisfaction ~ n_mutual_bfs, data=w1_satisfaction_predictors_clean))
+```
 
 ##### Do adolescents with smaller Negative networks have worse school satisfaction?
 ```{r Negative network}
@@ -143,4 +147,28 @@ summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indeg
 w1_satisfaction_predictors_clean$classid.f <- as.factor(w1_satisfaction_predictors_clean$classidCUF)
 summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + classid.f, data=w1_satisfaction_predictors_clean))
 ```
+### Now lets add in the mutual friends variable
+```{r}
+summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs + classid.f, data=w1_satisfaction_predictors_clean))
+```
+
+```{r}
+
+#the vars are correlated in the ways we would expect
+# negative in degree is negatively correlated with negative isolate and with positive in degree,
+#positive in degree is positively correlated with positive outdegree and negatively correlated with positive isolate
+cor(w1_satisfaction_predictors_clean$neg_indegree, w1_satisfaction_predictors_clean$neg_outdegree)
+cor(w1_satisfaction_predictors_clean$neg_indegree, w1_satisfaction_predictors_clean$neg_isolate)
+cor(w1_satisfaction_predictors_clean$neg_indegree, w1_satisfaction_predictors_clean$pos_indegree)
+cor(w1_satisfaction_predictors_clean$pos_indegree, w1_satisfaction_predictors_clean$pos_outdegree)
+cor(w1_satisfaction_predictors_clean$pos_isolate, w1_satisfaction_predictors_clean$pos_outdegree)
+#strong correlation b/n positive outdegree and number of mutual bfs
+cor(w1_satisfaction_predictors_clean$n_mutual_bfs, w1_satisfaction_predictors_clean$pos_outdegree, use = "complete.obs")
+
+
+
+
+
+```
+
 
