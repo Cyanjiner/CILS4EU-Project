@@ -40,6 +40,18 @@ main1 <- main1 %>%
          schooltype = as.factor(schtype_geRV),
          nationality = as.factor(y1_nationRV))
 ```
+```{r}
+main1 |> 
+  select(y1_sat2, sex, y1_doby, y1_nationRV, schtype_geRV, y1_sat2, classidCUF.y, neg_indegree, neg_outdegree, neg_isolate, pos_indegree, pos_outdegree, pos_isolate, schooltype, nationality) |> 
+  mutate_at(vars(neg_indegree, neg_outdegree, neg_isolate, pos_indegree, pos_outdegree, pos_isolate), scale) |> 
+  pivot_longer(cols = -c(y1_sat2, sex, y1_doby, y1_nationRV, schtype_geRV, y1_sat2, classidCUF.y, schooltype, nationality),
+               names_to = "network_trait", 
+               values_to = "value") |>
+  ggplot(aes(y = y1_sat2, x = value, color = network_trait)) +
+  facet_wrap(~network_trait)+
+    stat_summary(geom = "line", fun = "mean") +
+    scale_color_brewer(palette = "Paired")
+```
 
 ### Demographics & School-related Variables
 
