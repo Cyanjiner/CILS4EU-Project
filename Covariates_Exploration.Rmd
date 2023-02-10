@@ -48,7 +48,10 @@ library(ggpubr)
 ##note these visualizaions do NOT INCLUDE COVARIATES!!! S
 #we should create new visualizations after fitting models that show the relationships controlling for other covariates
 
-  
+main1 <- main1 |> 
+  mutate(pos_isolate = as.factor(pos_isolate)) |> 
+  mutate(neg_isolate = as.factor(neg_isolate))
+
 main1 |> 
   select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree) |>  
   mutate_at(vars(-c(y1_sat2)), scale) |> 
@@ -78,6 +81,17 @@ p2 <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
 
 bar_plots <- ggarrange(p1, p2, ncol = 2)
 bar_plots
+
+p1box <- ggplot(aes(x = pos_isolate, y = y1_sat2), data = main1)+
+  geom_boxplot()+
+  labs(x = "Positive Isolate Indicator", y = "Mean Satisfaction in School")
+
+p2box <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
+  geom_boxplot()+
+  labs(x = "Negative Isolate Indicator", y = "Mean Satisfaction in School")
+
+box_plots <- ggarrange(p1box, p2box, ncol = 2)
+box_plots
 
 #"How is being an Isolate in a Network related to School Satisfaction?")
 
