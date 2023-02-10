@@ -40,17 +40,47 @@ main1 <- main1 %>%
          schooltype = as.factor(schtype_geRV),
          nationality = as.factor(y1_nationRV))
 ```
+
+
 ```{r}
+library(gridExtra)
+library(ggpubr)
+##note these visualizaions do NOT INCLUDE COVARIATES!!! S
+#we should create new visualizations after fitting models that show the relationships controlling for other covariates
+
+  
 main1 |> 
-  select(y1_sat2, sex, y1_doby, y1_nationRV, schtype_geRV, y1_sat2, classidCUF.y, neg_indegree, neg_outdegree, neg_isolate, pos_indegree, pos_outdegree, pos_isolate, schooltype, nationality) |> 
-  mutate_at(vars(neg_indegree, neg_outdegree, neg_isolate, pos_indegree, pos_outdegree, pos_isolate), scale) |> 
-  pivot_longer(cols = -c(y1_sat2, sex, y1_doby, y1_nationRV, schtype_geRV, y1_sat2, classidCUF.y, schooltype, nationality),
+  select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree) |>  
+  mutate_at(vars(-c(y1_sat2)), scale) |> 
+  pivot_longer(cols = -c(y1_sat2),
                names_to = "network_trait", 
-               values_to = "value") |>
+               values_to = "value") |> 
   ggplot(aes(y = y1_sat2, x = value, color = network_trait)) +
-  facet_wrap(~network_trait)+
-    stat_summary(geom = "line", fun = "mean") +
-    scale_color_brewer(palette = "Paired")
+  facet_wrap(~network_trait, labeller = function(variable, value){
+    value <- gsub("neg_", "Negative ", value)
+    value <- gsub("pos_", "Positive ", value)
+    return(value)
+  }) +
+  stat_summary(geom = "line", fun = "mean") +
+  scale_color_brewer(palette = "Paired") +
+  labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How does student network traits in class relate to their school satisfaction?')+
+  theme(legend.position = "none")
+
+
+
+p1 <- ggplot(aes(x = pos_isolate, y = y1_sat2), data = main1)+
+  stat_summary(geom = "bar", fun = "mean")+
+  labs(x = "Positive Isolate Indicator", y = "Mean Satisfaction in School")
+
+p2 <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
+  stat_summary(geom = "bar", fun = "mean")+
+  labs(x = "Negative Isolate Indicator", y = "Mean Satisfaction in School")
+
+bar_plots <- ggarrange(p1, p2, ncol = 2)
+bar_plots
+
+#"How is being an Isolate in a Network related to School Satisfaction?")
+
 ```
 
 ### Demographics & School-related Variables
