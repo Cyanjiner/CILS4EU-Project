@@ -1,0 +1,906 @@
+---
+title: "Master RMD"
+output: html_document
+date: "2023-03-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Libraries
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(descr) 
+library(tidyverse)
+library(labelled)
+library(janitor)
+library(pastecs)
+library(haven)
+library(readstata13)
+```
+
+# Import Data
+
+```{r}
+w1_ym <- read.dta13("Data-Stata/our_data/w1_ym.dta", convert.factors = F)
+w1_yc <- haven::read_dta("Data-Stata/our_data/w1_yc.dta")
+w123_tracking <- read.dta13("Data-Stata/w123_tracking.dta")
+```
+
+## Tracking data Wave 1
+
+```{r wave1 youth classmates}
+freq(w123_tracking$ps_w1_yc, plot = FALSE)
+```
+
+## Tracking data - Wave 2
+
+```{r wave2 youth}
+freq(w123_tracking$ps_w2_yRV, plot = FALSE)
+```
+
+```{r wave2 youth main}
+freq(w123_tracking$ps_w2_ym, plot = FALSE)
+```
+
+\*Wave 2 DOES NOT have friends questionnaire!
+
+738 students DID NOT respond to Wave 2 classmates questionnaire.
+
+```{r wave2 youth classmates}
+freq(w123_tracking$ps_w2_yc, plot = FALSE)
+```
+
+## Tracking data - Wave 3
+
+```{r wave3 youth}
+freq(w123_tracking$ps_w3_yRV, plot = FALSE)
+```
+
+All 2498 participants responded to Wave 3 Youth Main questionnaire.
+
+```{r wave3 youth main}
+freq(w123_tracking$ps_w3_ym, plot = FALSE)
+```
+
+17 participants DID NOT respond to Wave 3 Youth Friends (5 best friends) questionnaire.
+
+```{r wave3 youth friend}
+freq(w123_tracking$ps_w3_yf, plot = FALSE)
+```
+
+Wave 3 DOES NOT have classmates questionnaire!
+
+Note: We decided to work with the wave 1 as 738 students DID NOT respond to Wave 2 classmates questionnaire, and wave 3 does not contain classmates component.
+
+# Exploring Data we Use for Network Measures
+
+#### Count number of classes by school:
+
+```{r count classes by school}
+# total number of school -- 80
+w1_yc <- haven::read_dta("Data-Stata/our_data/w1_yc.dta")
+w1_yc %>% 
+  group_by(schoolidCUF) %>% 
+  summarise(n_class = length(unique(classidCUF))) %>% 
+  group_by(n_class) %>% 
+  summarise(count_by_num_class=n(),
+            percent = count_by_num_class/80)
+```
+
+65% of all 80 schools in our subsample examined 2 classes
+
+#### Count Students by School:
+
+```{r count students by school}
+w1_yc %>% 
+  group_by(schoolidCUF) %>% 
+  summarise(total_obs = n()) %>% # NUM of participants from each school
+  arrange(desc(total_obs)) 
+```
+
+#### Example Network from School 3928:
+
+```{r use school3928--highest # of participated students as example}
+school3928 <- w1_yc %>% 
+  filter(schoolidCUF == 3928)
+
+# exclude useless variables
+school3928 <- school3928 %>% 
+  select(-schtype_geRV, -y1_intdat_ycRV, -y1_vers_yc)
+#colnames(school3928)
+```
+
+[Tutorial on labelled/unlabelled object in R](https://cran.r-project.org/web/packages/labelled/vignettes/intro_labelled.html)
+
+```{r data preprocess for school3928 network}
+# data only includes friendship measures
+network3928 <- school3928 %>% 
+  select(youthidCUF, 4:210)
+
+# code out missing values
+network3928_clean <- network3928 %>% 
+  labelled::to_factor() %>%  # changed labelled/haven_labelled object to factor
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame()
+```
+
+Relevant tutorial on networks in R [HERE](https://rstudio-pubs-static.s3.amazonaws.com/470420_91f1d47c90c54b879aa08ce93fa66730.html)
+
+Storing a network using an adjacency matrix also helps storing network attributes (by using the rownames of the adjacency matrix and assigning those rownames the corresponding attributes).
+
+Following the workflow described above, we are going to create an empty matrix with the unique student IDs as the row and column names so that we can later populate them with the information from the edgelist.
+
+```{r construct adjacency matrix}
+students <- unique(network3928_clean$youthidCUF)
+mat <- matrix(0, nrow=length(students), ncol = length(students))
+colnames(mat) <- as.character(students)
+rownames(mat) <- as.character(students)
+# A glimpse of what this look lik
+mat[1:4,1:4]
+```
+
+We are now going to use a loop to fill the matrix: 1 whenever there is a friendship tie in students, 0 otherwise.
+
+```{r fill adjacency matrix}
+i <- 1
+for (i in 1:nrow(network3928_clean)) {
+  row.index <- which(students == network3928_clean[i,1])
+  col.index <- which(students == network3928_clean[i,3]) # col 3 is best friends 1
+  mat[row.index, col.index] <- 1
+}
+mat[1:4,]
+```
+
+##### Friendship Network at School 3928 --\> All 5 best friends
+
+Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long
+
+```{r reshape data}
+bfs3928 <- network3928_clean %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "friendid")
+
+bfs3928 <- bfs3928 %>% 
+  select(youthidCUF, friendid) %>% 
+  filter(!is.na(friendid)) %>% 
+  mutate(youthidCUF = as.character(youthidCUF),
+         friendid = as.character(friendid))
+
+bfs_nw <- network(bfs3928, matrix.type = "edgelist")
+#Or we can do it by using the adjacency matrix:
+#nw2 <- network(mat, directed = TRUE)
+ggnet2(bfs_nw,
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+# Now, Create Network Measures for all data in Wave I
+
+### Count \# of mutual friends
+
+```{r data preprocess for all schools}
+# data only includes friendship measures
+w1_reciprocal <- w1_yc %>% 
+  select(youthidCUF, 7:210) %>% 
+  mutate(y1_bfs_0 = as.numeric(as.character(y1_bfs_0)))
+
+# code out missing values
+w1_reciprocal <- w1_reciprocal %>% 
+  #labelled::to_factor() %>%  # changed labelled/haven_labelled object to factor
+  lapply(function(x) as.numeric(as.character(x))) %>% # coerce all vars to be numeric
+  data.frame() 
+
+w1_reciprocal[w1_reciprocal < 0] <- NA
+
+# exclude the 4 students did not respond to best friends questions at all
+descr::freq(w1_yc$y1_bfs_0, plot=FALSE)
+descr::freq(w1_reciprocal$y1_bfs_0, plot=FALSE)
+#na_students <- c(52280219,42110503,31080205,29840209)
+#w1_pos <- w1_pos %>% 
+#  filter(!youthidCUF %in% na_students)
+```
+
+```{r reshape data to be long format}
+w1_reciprocal_long <- w1_reciprocal %>% 
+  filter(!is.na(y1_bfs_0)) %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "friendid") %>% 
+  select(youthidCUF, friendid) 
+
+length(unique(w1_reciprocal_long$youthidCUF))
+
+#no_friends <- w1_pos$youthidCUF[w1_pos$y1_bfs_0 == 1]
+#no_friends_id
+```
+
+```{r count by best friends}
+w1_bfs <- w1_reciprocal_long %>% 
+  mutate(hasfriend = ifelse(is.na(friendid),0,1)) %>% 
+  group_by(youthidCUF) %>% 
+  summarise(num_bfs = sum(hasfriend)) 
+
+descr::freq(w1_bfs$num_bfs, plot = FALSE)
+```
+
+```{r count mutual friends}
+students <- unique(w1_bfs$youthidCUF)
+fred_mat <- as.data.frame(students) %>% 
+  mutate(n_mutual_bfs = 0)
+colnames(fred_mat)[1] <- "youthidCUF"
+
+for (i in 1 : nrow(fred_mat)) {
+  id = fred_mat[i,1]
+  dt = w1_reciprocal_long %>% filter(youthidCUF == id)
+  bfs = unique(dt$friendid)
+  for (bf in bfs) {
+    bf_data = w1_reciprocal_long %>% filter(youthidCUF == bf)
+    if (id %in% unique(bf_data$friendid)){
+      fred_mat[i,2] = fred_mat[i,2] + 1
+      
+    } else {next}
+  }
+}
+
+descr::freq(fred_mat$n_mutual_bfs)
+```
+
+```{r merge positive friends counts, eval=FALSE}
+w1_reciprocal_yc <- merge(fred_mat,w1_bfs,by="youthidCUF")
+#write_dta(w1_pos_yc, "Data-Stata/our_data/w1_pos_yc.dta")
+```
+
+Calculate other measures of reciprocity (Followers and non-reciprocal friends:
+
+### Followers:
+
+```{r}
+
+```
+
+### Non-reciprocal friends:
+
+```{r}
+
+```
+
+```{r}
+#merge all these measures into one df: w1_reciprocal_yc
+```
+
+### Positive Friendship Network
+
+```{r data preprocessing}
+class1 <- w1_yc %>% 
+  select(-y1_intdat_ycRV, -y1_vers_yc)
+# look at the structur of data
+#str(w1_class)
+```
+
+In Sanne's code: "\# add health students mention on average 6 or 7 friends. \# but these are american students who have lower thresholds of friendship nominations \# drop cases according to Kruse & Jacobs Q: do we also want to drop these cases?
+
+```{r drop cases according to Kruse & Jacobs, eval=FALSE}
+# add health students mention on average 6 or 7 friends. 
+# but these are american students who have lower thresholds for friendship nominations
+# drop cases according to Kruse & Jacobs
+class1$n <- 1
+myvars <- c("n", "y1_nnomineeG")
+npupils <- aggregate(class1[myvars], sum, by = list(class1$classidCUF))
+keep <- npupils[npupils$n > 10 & npupils$y1_nnomineeG <=4, 1]
+
+class1 <- class1[class1$classid %in% keep, ]
+class1 <- class1[class1$y1_classid_matchG == 1, ]
+class1 <- class1[class1$y1_p_participantsG >= .75, ]
+class1 <- class1[class1$y1_p_invalidnomsG <= .1, ]
+```
+
+### Data Preprocessing for Building Positive Friendship Network
+
+```{r select positive friendship measures}
+# code out missing values
+# select friendship measures and set missing values to NA
+pos_vars <- c("y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
+class1[pos_vars][class1[pos_vars] < 0] <- NA
+descr::freq(class1$y1_bfs_0)
+```
+
+Q: For those who did not report having best friend in class, do we remove them or include them and make their \# class best friends = 0?
+
+```{r positive reshape to long}
+# reshape to long
+class1.l <- class1 %>% 
+  select(youthidCUF, y1_bfs_1:y1_bfs_5) %>% 
+  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
+               names_to = "best_friends",
+               values_to = "alteridCUF") %>% 
+  select(youthidCUF, alteridCUF) %>% 
+  na.omit() # remove NAs for building network
+print("Number of Unique Students in subsample")
+length(unique(class1.l$youthidCUF))
+### Sanne's code
+#myvars <- c("youthidCUF", "y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
+#class1.l <- reshape(class1[myvars], varying = myvars[-1], v.names = "alterid", timevar = "friend", idvar = "youthidCUF", times =myvars[-1], direction = "long")
+```
+
+```{r data preprocess for positive network}
+myids <- as.data.frame(unique(class1[c("youthidCUF","classidCUF")]))
+classids <- unique(class1$classidCUF)
+class1.l <- merge(class1.l, myids, by = "youthidCUF", all.x = TRUE)
+classids <- unique(class1.l$classid)
+
+nclass <- length(unique(class1.l$classid))
+print("Number of classes in subsample")
+nclass
+
+# make sure you take only the last two digits of youthid otherwise sna
+# thinks that there are a thousand actors
+class1.l <- class1.l %>% 
+  mutate(youthid = youthidCUF %% 100,
+         alterid = alteridCUF %% 100) %>% 
+  select(youthid, alterid, classidCUF)
+```
+
+### Make Positive Friendship Network for each class
+
+```{r make positive network for each class}
+el.list <- list()
+class.list <- list()
+
+for (i in 1:nclass){
+  el.list[[i]] <- class1.l[class1.l$classidCUF == classids[i],]
+  class.list[[i]] <- classids[i]
+}
+
+net.list <- lapply(el.list, as.network.matrix, matrix.type = "edgelist", 
+ ignore.eval = FALSE, names.eval = "classidCUF")	
+```
+
+### Visualization of Positive Network 1 -- classidCUF 102001
+
+Q:
+
+```{r positive network viz}
+ggnet2(net.list[[1]],
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+### Calculate Positive Friendship Network measures
+
+```{r positive network measures}
+mat.list <- lapply(net.list, as.matrix)
+indegree.list <- lapply(mat.list, degree, cmode = "indegree", gmode = "digraph", diag = FALSE)
+outdegree.list <- lapply(mat.list, degree, cmode = "outdegree", gmode = "digraph", diag = FALSE)
+#bonpow.list <- lapply(mat.list, bonpow, diag = FALSE)
+  # error? singular?
+```
+
+```{r unlist positive network measures}
+a.list <- lapply(net.list, get.vertex.attribute, "vertex.names")
+netm <- mapply(cbind, a.list, class.list, indegree.list, outdegree.list)
+netm <- lapply(netm, as.data.frame)
+netm <- as.data.frame(do.call(rbind, netm))
+names(netm) <- c("youthid", "classid", "indegree", "outdegree")
+
+# computate isolate measure
+pos_netm <- netm %>% 
+  mutate(isolate = ifelse(indegree == 0 & outdegree == 0, 1, 0),
+         youthid_chr = as.character(youthid),
+         classid_chr = as.character(classid),
+         youthid_nchr = nchar(youthid_chr) # count the number of characters
+         )
+
+# add 0 to single digit youthid
+pos_netm$youthid_chr[netm$youthid_nchr == 1] <- paste0("0", netm$youthid_chr[netm$youthid_nchr == 1])
+
+# change to numeric youthid
+pos_netm$youthid <- as.numeric(paste0(netm$classid_chr, netm$youthid_chr))
+```
+
+```{r save positive friendship network, eval=FALSE}
+#haven::write_dta(pos_netm, "Data-Stata/our_data/w1_pos_netm.dta")
+```
+
+## Negative Friendship Network
+
+### Data Preprocessing for Building Negative Friendship Network
+
+```{r select negative friendship measures}
+# code out missing values
+# select friendship measures and set missing values to NA
+neg_vars <- c("y1_sit_1", "y1_sit_2", "y1_sit_3", "y1_sit_4", "y1_sit_5")
+class1[neg_vars][class1[neg_vars] < 0] <- NA
+descr::freq(class1$y1_sit_0)
+```
+
+Q: For those who did not report having someone they don't wanna sit with in class, do we remove them or include them and make their \# class best friends = 0?
+
+```{r negative reshape to long}
+# reshape to long
+neg_class1.l <- class1 %>% 
+  select(youthidCUF, y1_sit_1:y1_sit_5) %>% 
+  pivot_longer(cols = y1_sit_1:y1_sit_5,
+               names_to = "bad_friends",
+               values_to = "alteridCUF") %>% 
+  select(youthidCUF, alteridCUF) %>% 
+  na.omit() # remove NAs for building network
+print("Number of students in negative subsample")
+length(unique(neg_class1.l$youthidCUF))
+### Sanne's code
+#myvars <- c("youthidCUF", "y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
+#class1.l <- reshape(class1[myvars], varying = myvars[-1], v.names = "alterid", timevar = "friend", idvar = "youthidCUF", times =myvars[-1], direction = "long")
+```
+
+```{r data preprocess for negative network}
+myids <- as.data.frame(unique(class1[c("youthidCUF","classidCUF")]))
+classids <- unique(class1$classidCUF)
+neg_class1.l <- merge(neg_class1.l, myids, by = "youthidCUF", all.x = TRUE)
+classids <- unique(neg_class1.l$classid)
+
+nclass <- length(unique(neg_class1.l$classid))
+print("Number of Classes in Negative network")
+nclass
+
+# make sure you take only the last two digits of youthid otherwise sna
+# thinks that there are a thousand actors
+neg_class1.l <- neg_class1.l %>% 
+  mutate(youthid = youthidCUF %% 100,
+         alterid = alteridCUF %% 100) %>% 
+  select(youthid, alterid, classidCUF)
+```
+
+### Make Negative Friendship Network for each class
+
+```{r make negative network for each class}
+neg_el.list <- list()
+neg_class.list <- list()
+
+for (i in 1:nclass){
+  neg_el.list[[i]] <- neg_class1.l[neg_class1.l$classidCUF == classids[i],]
+  neg_class.list[[i]] <- classids[i]
+}
+
+neg_net.list <- lapply(neg_el.list, as.network.matrix, matrix.type = "edgelist", 
+ ignore.eval = FALSE, names.eval = "classidCUF")	
+```
+
+### Visualization of Negative Network 1 -- classidCUF 102001
+
+Q:
+
+```{r negative network viz}
+ggnet2(neg_net.list[[1]],
+       label = TRUE,
+       label.size = 3,
+       arrow.size = 3,
+       arrow.gap = .03)
+```
+
+### Calculate Negative Friendship Network measures
+
+```{r negative network measures}
+neg_mat.list <- lapply(neg_net.list, as.matrix)
+neg_indegree.list <- lapply(neg_mat.list, degree, cmode = "indegree", gmode = "digraph", diag = FALSE)
+neg_outdegree.list <- lapply(neg_mat.list, degree, cmode = "outdegree", gmode = "digraph", diag = FALSE)
+#bonpow.list <- lapply(mat.list, bonpow, diag = FALSE)
+  # error? singular?
+```
+
+```{r negative unlist network measures}
+neg_a.list <- lapply(neg_net.list, get.vertex.attribute, "vertex.names")
+neg_netm <- mapply(cbind, neg_a.list, neg_class.list, neg_indegree.list, neg_outdegree.list)
+neg_netm <- lapply(neg_netm, as.data.frame)
+neg_netm <- as.data.frame(do.call(rbind, neg_netm))
+names(neg_netm) <- c("youthid", "classid", "neg_indegree", "neg_outdegree")
+
+# computate isolate measure
+neg_netm <- neg_netm %>% 
+  mutate(neg_isolate = ifelse(neg_indegree == 0 & neg_outdegree == 0, 1, 0),
+         youthid_chr = as.character(youthid),
+         classid_chr = as.character(classid),
+         youthid_nchr = nchar(youthid_chr) # count the number of characters
+         )
+
+# add 0 to single digit youthid
+neg_netm$youthid_chr[neg_netm$youthid_nchr == 1] <- paste0("0", neg_netm$youthid_chr[neg_netm$youthid_nchr == 1])
+
+# change to numeric youthid
+neg_netm$youthid <- as.numeric(paste0(neg_netm$classid_chr, neg_netm$youthid_chr))
+```
+
+```{r save negative friendship network, eval=FALSE}
+haven::write_dta(neg_netm, "Data-Stata/our_data/w1_neg_netm.dta")
+```
+
+```{r}
+#merge network centrality measures
+w1_netm <- merge(neg_netm, pos_netm, by = "youthidCUF")
+
+#now merge centrality measures w reciprocity measures
+w1_netm <- merge(w1_netm, w1_reciprocal_yc)
+```
+
+Merge Network Data w Youth Main Questionnaire
+
+```{r}
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3")
+main1 <- w1_ym[covars]
+main1 <- merge(main1, w1_netm, by = "youthidCUF")
+
+# change gender/ nationality / school type as factor
+main1 <- main1 %>% 
+  mutate(sex = as.factor(y1_sex),
+         schooltype = as.factor(schtype_geRV),
+         nationality = as.factor(y1_nationRV))
+
+main1[main1 < 0] <- NA 
+main1$age <- 2010 - main1$y1_doby
+```
+
+# Exploratory Data Analysis 
+
+```{r}
+library(gridExtra)
+library(ggpubr)
+##note these visualizaions do NOT INCLUDE COVARIATES!!! S
+#we should create new visualizations after fitting models that show the relationships controlling for other covariates
+
+main1 <- main1 |> 
+  mutate(pos_isolate = as.factor(pos_isolate)) |> 
+  mutate(neg_isolate = as.factor(neg_isolate))
+
+main1 |> 
+  select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree) |>  
+  mutate_at(vars(-c(y1_sat2)), scale) |> 
+  pivot_longer(cols = -c(y1_sat2),
+               names_to = "network_trait", 
+               values_to = "value") |> 
+  ggplot(aes(y = y1_sat2, x = value, color = network_trait)) +
+  facet_wrap(~network_trait, labeller = function(variable, value){
+    value <- gsub("neg_", "Negative ", value)
+    value <- gsub("pos_", "Positive ", value)
+    return(value)
+  }) +
+  stat_summary(geom = "line", fun = "mean") +
+  scale_color_brewer(palette = "Paired") +
+  labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How does student network traits in class relate to their school satisfaction?')+
+  theme(legend.position = "none")
+
+
+
+p1 <- ggplot(aes(x = pos_isolate, y = y1_sat2), data = main1)+
+  stat_summary(geom = "bar", fun = "mean")+
+  labs(x = "Positive Isolate Indicator", y = "Mean Satisfaction in School")
+
+p2 <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
+  stat_summary(geom = "bar", fun = "mean")+
+  labs(x = "Negative Isolate Indicator", y = "Mean Satisfaction in School")
+
+bar_plots <- ggarrange(p1, p2, ncol = 2)
+bar_plots
+
+p1box <- ggplot(aes(x = pos_isolate, y = y1_sat2), data = main1)+
+  geom_boxplot()+
+  labs(x = "Positive Isolate Indicator", y = "Mean Satisfaction in School")
+
+p2box <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
+  geom_boxplot()+
+  labs(x = "Negative Isolate Indicator", y = "Mean Satisfaction in School")
+
+box_plots <- ggarrange(p1box, p2box, ncol = 2)
+box_plots
+
+#"How is being an Isolate in a Network related to School Satisfaction?")
+
+```
+
+# Covariate Exploration
+
+### Demographics & School-related Variables
+
+#### School Type (Germany) --- `schtype_geRV`
+
+-   1 = Lower secondary school
+
+-   2 = School combining several tracks
+
+-   3 = Intermediate secondary school
+
+-   4 = Comprehensive school / Rudolf-Steiner School
+
+-   5 = Upper secondary school
+
+-   6 = School for special needs
+
+```{r school type}
+# univariate analysis of school type
+descr::freq(main1$schtype_geRV)
+```
+
+#### Language
+
+##### `y1_lpsc1` How well can you speak German [survey country language] ?
+
+-   1 = Not at all
+
+-   2 = Not well
+
+-   3 = Well
+
+-   4 = Very well
+
+-   5 = Excellently
+
+##### `y1_lpsc2` How well can you understand German?
+
+##### `y1_lpsc3` read German \| `y1_lpsc4` write German
+
+### Language measures -- proficiency in survey country language (German)
+
+-   5-point Likert type (1 = Not at all, 2 = Not well ... 5 = Excellently)
+-   four sub-measures regarding speak, read, write, understand
+
+Data manipulation --\> recode them into 0 to 4 for each measure and sum them up
+
+```{r}
+{r language}
+# recode multiple variables whose levels are 1 to 5 into 0 to 4
+main2 <- main1 %>% 
+  mutate_at(vars(y1_lpsc1:y1_lpsc4), funs(.-1))
+
+# check summary stats 
+print("Before recoding")
+summary((main1 %>% select(y1_lpsc1:y1_lpsc4)))
+print("After recoding")
+summary((main2 %>% select(y1_lpsc1:y1_lpsc4)))
+
+main2 <- main2 %>% 
+  mutate(language = y1_lpsc1 + y1_lpsc2 + y1_lpsc3 + y1_lpsc4)
+descr::freq(main2$language)
+```
+
+#### Demographics, Migration
+
+#### Gender --- `y1_sex`
+
+-   1 = Boy
+
+-   2 = Girl
+
+```{r gender type}
+# add factor variable of gender
+main2$gender = ifelse(main2$y1_sex == 1, "Boy", "Girl")
+descr::freq(main2$gender, plot = FALSE)
+```
+
+#### Age --- `y1_doby` (when were you born? Year)
+
+```{r age}
+descr::freq(main2$age, plot = FALSE)
+```
+
+#### Migration age --- `y1_migage` (how old were you when you moved to [survey country]?)
+
+#### Nationality --- `y1_nationRV`
+
+-   1 = Only survey country nationality
+
+-   2 = Survey country and other nationality
+
+-   3 = Only other nationality
+
+```{r nationality}
+main2 <- main2 %>% 
+  mutate(nationality = case_when(
+    y1_nationRV == 1 ~ "German only",
+    y1_nationRV == 2 ~ "German and other nationality",
+    y1_nationRV == 3 ~ "Only other nationality",),
+    nationality = factor(nationality, 
+                            levels=c("German only",
+                                     "German and other nationality",
+                                     "Only other nationality")))
+
+# check for recoding
+print("Before recoding")
+descr::freq(main1$y1_nationRV,plot = FALSE)
+print("After recoding")
+descr::freq(main2$nationality,plot = FALSE)
+```
+
+##### Correlation Matrix
+
+```{r corr,eval=FALSE}
+library(corrplot)
+library(Hmisc)
+
+mydata.cor = cor(na.omit(main1[,-c(1:3,6)]), method = c("spearman"))
+mydata.cor
+corrplot(mydata.cor, method = "color")
+```
+
+##### Summary Statistics
+
+```{r, eval=FALSE}
+# change gender/ nationality / school type as factor
+summary(main1 %>% 
+  mutate(classidCUF = as.factor(classidCUF),
+         schoolidCUF = as.factor(schoolidCUF),
+         y1_sex = as.factor(y1_sex),
+         schtype_geRV = as.factor(schtype_geRV),
+         y1_nationRV = as.factor(y1_nationRV),
+         y1_fact = as.factor(y1_fact)) %>% 
+  select(-youthidCUF))
+```
+
+## Economic situation
+
+### `y1_fact` --- can't afford friends' activities
+
+-   1 = Always
+-   2 = Often
+-   3 = Sometimes
+-   4 = Never
+
+Note that high values in this variable represent low economic situation
+
+```{r eco}
+descr::freq(main1$y1_fact, plot = FALSE)
+```
+
+## Structual Integration
+
+### Deviance & Delinquency at school
+
+#### `y1_pbsch1` How often do exihibit following problem behaviors in school?
+
+argue with teacher \| get a punishment in school (e.g. being kept in detention, sent out of class, writing lines) \| skip a lesson without permission? \| come late to school?
+
+Response:
+
+-   1 = every day
+
+-   2 = once or several times a week
+
+-   3 = once or several times a month
+
+-   4 = less often
+
+-   5 = never
+
+```{r problem behaviors}
+
+# recoding problem behavioral measures
+main2 <- main2 %>% 
+  mutate_at(vars(y1_pbsch1:y1_pbsch4), ~ 5-.) %>% 
+  mutate(problem_behaviors = y1_pbsch1 + y1_pbsch2 + y1_pbsch3 + y1_pbsch4)
+# check before recoding
+print("Before recoding")
+descr::freq(main1$y1_pbsch1, plot = FALSE)
+print("After recoding")
+descr::freq(main2$y1_pbsch1, plot = FALSE)
+print("Frequency of problem behaviors")
+descr::freq(main2$problem_behaviors)
+```
+
+#### `y1_del1` --- Delinquent behavior: Deliberately damaged things that were not yours
+
+-   1 = yes
+-   2 = no \#### `y1_del2` --- Delinquent behavior: Stolen something from a shop/from someone else? \#### `y1_del3` --- Delinquent behavior: Carried a knife or weapon \#### `y1_del1` --- Delinquent behavior: Been very drunk
+
+```{r delinquency behavior}
+main2 <- main2 %>% 
+  mutate_at(vars(y1_del1:y1_del4), 
+            funs(replace(., . == 2,0)))
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_del1:y1_del4), as.factor) %>% select(y1_del1 : y1_del4))
+
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_del1:y1_del4), as.factor) %>% select(y1_del1 : y1_del4))
+
+# if or not they have delinquency behavior
+main2 <- main2 %>% 
+  mutate(delinquency_history = ifelse(rowSums(
+    select(.,y1_del1:y1_del4) == 1) > 0,
+    'yes','no'),
+    delinquency_count = y1_del1 + y1_del2 + y1_del3 + y1_del4)
+
+print("Delinquency history frequency")
+descr::freq(main2$delinquency_history,plot = FALSE)
+print("Delinquency count frequency")
+descr::freq(main2$delinquency_count,plot = FALSE)
+```
+
+### Discrimination at school
+
+Note that we donnot use perceived discrimination measures as they occur outside school setting! \#### `y1_vict1:y1_vict3` -- Victim at school following types: scared of other students \| teased by other students \| bullied by other students
+
+Responses: - 1 = every day - 2 = once or several times a week - 3 = less often - 4 = never
+
+```{r victim}
+main2 <- main2 %>%
+  mutate_at(vars(y1_vict1:y1_vict3),  ~4-.)
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+
+main2 <- main2 %>% 
+  mutate(victim_history = ifelse(rowSums(
+    select(.,y1_vict1:y1_vict3) == 1) > 0,
+    1,0)) %>% 
+  mutate_at(vars(y1_vict1:y1_vict3), 
+         funs(ifelse(. == 3, 5, # every day
+                     ifelse(. == 2, 4, # once or several times a week
+                            ifelse(. == 1, 2, .) # less often
+                            )
+                     )
+              )
+         ) # never
+main2 <- main2 %>% 
+  mutate(victim_history_score = y1_vict1 + y1_vict2 + y1_vict3)
+descr::freq(main2$victim_history,plot = FALSE)
+descr::freq(main2$victim_history_score)
+print("After recoding stage two")
+summary(main2 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vict1:y1_vict3))
+```
+
+### Family
+
+#### Family Relation
+
+##### `y1_gawm | y1_gawf` --- how well do you get along with your mother/father?
+
+-   1 = every very well
+-   2 = well
+-   3 = not so well
+-   4 = not well at all
+
+```{r parents relation}
+# if or not they have delinquency behavior
+main2 <- main2 %>% 
+  mutate_at(vars(y1_gawm,y1_gawf), ~4-.) %>% 
+  mutate(parent_relation = round((y1_gawf + y1_gawm)/2)) # average score of how well they get along with parents
+
+print("Before recoding")
+summary(main1 %>% mutate_at(vars(y1_gawm,y1_gawf), as.factor) %>% select(y1_gawm,y1_gawf))
+
+print("After recoding")
+summary(main2 %>% mutate_at(vars(y1_gawm,y1_gawf), as.factor) %>% select(y1_gawm,y1_gawf))
+
+print("Parental relation")
+descr::freq(main2$parent_relation,plot = FALSE)
+```
+
+## School satisfication
+
+```{r outcome}
+descr::freq(main2$y1_sat2)
+```
+
+### Self-esteem
+
+#### `y1_sest1:y1_sest4` following measures:
+
+I have a lot of good qualities \| have a lot to be proud of \| like myself just the way I am \| think things will go well for me in the future
+
+Response: - 1 = strongly agree - 2 = agree - 3 = neither agree nor disagree - 4 = disagree - 5 = strongly disagree
+
+```{r save as json file, eval=FALSE}
+jsonlite::write_json(main2, "Data-Stata/our_data/CILS4EU.json")
+write_csv(main2, "Data-Stata/our_data/all_main.csv")
+```
+
+# Fit models:
