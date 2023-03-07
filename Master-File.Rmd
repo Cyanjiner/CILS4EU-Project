@@ -605,6 +605,8 @@ box_plots
 
 ```
 
+Add some plots, correlation matrix
+
 # Covariate Exploration
 
 ### Demographics & School-related Variables
@@ -904,3 +906,9 @@ write_csv(main2, "Data-Stata/our_data/all_main.csv")
 ```
 
 # Fit models:
+
+```{r}
+# df$classid.f <- as.factor(df$classidCUF)
+# summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  +  .... + [covariates here] + as.factor(y1_nationRV) + as.factor(schtype_geRV) + as.factor(y1_sex), + classid.f, data=df))
+
+```
