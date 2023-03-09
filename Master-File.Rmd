@@ -182,7 +182,7 @@ ggnet2(bfs_nw,
        arrow.gap = .03)
 ```
 
-# Now, Create Network Measures for all data in Wave I
+# Create Network Measures for all data in Wave I
 
 ### Count \# of mutual friends
 
@@ -235,7 +235,8 @@ descr::freq(w1_bfs$num_bfs, plot = FALSE)
 ```{r count mutual friends}
 students <- unique(w1_bfs$youthidCUF)
 fred_mat <- as.data.frame(students) %>% 
-  mutate(n_mutual_bfs = 0)
+  mutate(n_mutual_bfs = 0) |> 
+  mutate(non_reciprocal = 0)
 colnames(fred_mat)[1] <- "youthidCUF"
 
 for (i in 1 : nrow(fred_mat)) {
@@ -246,12 +247,16 @@ for (i in 1 : nrow(fred_mat)) {
     bf_data = w1_reciprocal_long %>% filter(youthidCUF == bf)
     if (id %in% unique(bf_data$friendid)){
       fred_mat[i,2] = fred_mat[i,2] + 1
-      
-    } else {next}
+      } 
+    else if (! id %in% unique(bf_data$friendid)){
+      fred_mat[i,3] = fred_mat[i,3] + 1
+    }
+    else {next}
   }
 }
 
 descr::freq(fred_mat$n_mutual_bfs)
+descr::freq(fred_mat$non_reciprocal)
 ```
 
 ```{r merge positive friends counts, eval=FALSE}
@@ -259,23 +264,7 @@ w1_reciprocal_yc <- merge(fred_mat,w1_bfs,by="youthidCUF")
 #write_dta(w1_pos_yc, "Data-Stata/our_data/w1_pos_yc.dta")
 ```
 
-Calculate other measures of reciprocity (Followers and non-reciprocal friends:
-
-### Followers:
-
-```{r}
-
-```
-
-### Non-reciprocal friends:
-
-```{r}
-
-```
-
-```{r}
-#merge all these measures into one df: w1_reciprocal_yc
-```
+Calculate other measures of reciprocity (Followers?)
 
 ### Positive Friendship Network
 
@@ -548,7 +537,7 @@ main1[main1 < 0] <- NA
 main1$age <- 2010 - main1$y1_doby
 ```
 
-# Exploratory Data Analysis 
+# Exploratory Data Analysis
 
 ```{r}
 library(gridExtra)
