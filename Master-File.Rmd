@@ -22,6 +22,8 @@ library(haven)
 library(readstata13)
 library(sna)
 library(GGally)
+library(reshape2)
+library(viridis)
 ```
 
 # Import Data
@@ -384,11 +386,11 @@ a.list <- lapply(net.list, get.vertex.attribute, "vertex.names")
 netm <- mapply(cbind, a.list, class.list, indegree.list, outdegree.list)
 netm <- lapply(netm, as.data.frame)
 netm <- as.data.frame(do.call(rbind, netm))
-names(netm) <- c("youthid", "classid", "indegree", "outdegree")
+names(netm) <- c("youthid", "classid", "pos_indegree", "pos_outdegree")
 
 # computate isolate measure
 pos_netm <- netm %>% 
-  mutate(isolate = ifelse(indegree == 0 & outdegree == 0, 1, 0),
+  mutate(pos_isolate = ifelse(pos_indegree == 0 & pos_outdegree == 0, 1, 0),
          youthid_chr = as.character(youthid),
          classid_chr = as.character(classid),
          youthid_nchr = nchar(youthid_chr) # count the number of characters
@@ -399,6 +401,8 @@ pos_netm$youthid_chr[netm$youthid_nchr == 1] <- paste0("0", netm$youthid_chr[net
 
 # change to numeric youthid
 pos_netm$youthid <- as.numeric(paste0(pos_netm$classid_chr, pos_netm$youthid_chr))
+pos_netm <- pos_netm |> 
+  select(youthid, classid, pos_indegree, pos_outdegree, pos_isolate)
 ```
 
 ```{r save positive friendship network, eval=FALSE}
@@ -510,6 +514,9 @@ neg_netm$youthid_chr[neg_netm$youthid_nchr == 1] <- paste0("0", neg_netm$youthid
 
 # change to numeric youthid
 neg_netm$youthid <- as.numeric(paste0(neg_netm$classid_chr, neg_netm$youthid_chr))
+
+neg_netm <- neg_netm |> 
+  select(youthid, classid, neg_indegree, neg_outdegree, neg_isolate)
 ```
 
 ```{r save negative friendship network, eval=FALSE}
@@ -518,10 +525,17 @@ haven::write_dta(neg_netm, "Data-Stata/our_data/w1_neg_netm.dta")
 
 ```{r}
 #merge network centrality measures
-w1_netm <- merge(neg_netm, pos_netm, by = "youthid")
+w1_netm <- merge(neg_netm, pos_netm, by = "youthid") |> 
+  rename(youthidCUF = youthid)
+
+#why are these different lengths?? we do not have all network measure for all observations....
+length(unique(neg_netm$youthid))
+length(unique(pos_netm$youthid))
+length(unique(w1_netm$youthidCUF))
+length(unique(w1_reciprocal_yc$youthidCUF))
 
 #now merge centrality measures w reciprocity measures
-w1_netm <- merge(w1_netm, w1_reciprocal_yc)
+w1_netm <- merge(w1_netm, w1_reciprocal_yc, by = "youthidCUF")
 ```
 
 Merge Network Data w Youth Main Questionnaire
@@ -539,6 +553,8 @@ main1 <- main1 %>%
 
 main1[main1 < 0] <- NA 
 main1$age <- 2010 - main1$y1_doby
+
+summary(main1)
 ```
 
 # Exploratory Data Analysis
@@ -555,7 +571,7 @@ main1 <- main1 |>
 
 main1 |> 
   select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree) |>  
-  mutate_at(vars(-c(y1_sat2)), scale) |> 
+  #mutate_at(vars(-c(y1_sat2)), scale) |> 
   pivot_longer(cols = -c(y1_sat2),
                names_to = "network_trait", 
                values_to = "value") |> 
@@ -599,6 +615,52 @@ box_plots
 ```
 
 Add some plots, correlation matrix
+
+```{r}
+d_cor <- dplyr::select(main1, pos_indegree, pos_outdegree, neg_indegree, neg_outdegree) 
+cor(d_cor)
+
+cormat <- cor(d_cor)
+
+long_cormat <- cormat |> 
+  as.data.frame() |> 
+  mutate(var1 = rownames(cormat)) |> 
+  pivot_longer(-var1, names_to = 'var2', values_to = 'r')
+
+  # Get upper triangle of the correlation matrix
+  get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+  }
+  
+upper_tri <- get_upper_tri(cormat)
+upper_tri
+
+
+reorder_cormat <- function(cormat){
+# Use correlation between variables as distance
+dd <- as.dist((1-cormat)/2)
+hc <- hclust(dd)
+cormat <-cormat[hc$order, hc$order]
+}
+
+cormat <- reorder_cormat(cormat)
+upper_tri <- get_upper_tri(cormat)
+# Melt the correlation matrix
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Create a ggheatmap
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+  scale_fill_viridis(option = "B", discrete = FALSE)+
+  theme_minimal()+ # minimal theme
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()+
+  labs(x = 'Variable 2', y = 'Variable 1', title = 'Correlation Matrix Heatmap')
+ 
+# Print the heatmap
+print(ggheatmap)
+```
 
 # Covariate Exploration
 
@@ -648,8 +710,8 @@ descr::freq(main1$schtype_geRV)
 
 Data manipulation --\> recode them into 0 to 4 for each measure and sum them up
 
-```{r}
-{r language}
+```{r language}
+
 # recode multiple variables whose levels are 1 to 5 into 0 to 4
 main2 <- main1 %>% 
   mutate_at(vars(y1_lpsc1:y1_lpsc4), funs(.-1))
@@ -901,7 +963,8 @@ write_csv(main2, "Data-Stata/our_data/all_main.csv")
 # Fit models:
 
 ```{r}
-# df$classid.f <- as.factor(df$classidCUF)
-# summary(lm(satisfaction ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  +  .... + [covariates here] + as.factor(y1_nationRV) + as.factor(schtype_geRV) + as.factor(y1_sex), + classid.f, data=df))
+main2$classid.f <- as.factor(main2$classidCUF)
+summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + schoolidCUF + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + victim_history + parent_relation + classid.f, data=main2))
 
+#do we run a lm with all the possible network measures? or run individual?
 ```
