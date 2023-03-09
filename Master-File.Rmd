@@ -20,6 +20,8 @@ library(janitor)
 library(pastecs)
 library(haven)
 library(readstata13)
+library(sna)
+library(GGally)
 ```
 
 # Import Data
@@ -99,7 +101,8 @@ w1_yc %>%
 w1_yc %>% 
   group_by(schoolidCUF) %>% 
   summarise(total_obs = n()) %>% # NUM of participants from each school
-  arrange(desc(total_obs)) 
+  arrange(desc(total_obs)) |> 
+  ungroup()
 ```
 
 #### Example Network from School 3928:
@@ -184,7 +187,7 @@ ggnet2(bfs_nw,
 
 # Create Network Measures for all data in Wave I
 
-### Count \# of mutual friends
+### Count Reciprocity (n mutual friends, non-reciprocal)
 
 ```{r data preprocess for all schools}
 # data only includes friendship measures
@@ -269,6 +272,7 @@ Calculate other measures of reciprocity (Followers?)
 ### Positive Friendship Network
 
 ```{r data preprocessing}
+w1_yc <- read.dta13("Data-Stata/our_data/w1_yc.dta",convert.factors =F)
 class1 <- w1_yc %>% 
   select(-y1_intdat_ycRV, -y1_vers_yc)
 # look at the structur of data
@@ -394,7 +398,7 @@ pos_netm <- netm %>%
 pos_netm$youthid_chr[netm$youthid_nchr == 1] <- paste0("0", netm$youthid_chr[netm$youthid_nchr == 1])
 
 # change to numeric youthid
-pos_netm$youthid <- as.numeric(paste0(netm$classid_chr, netm$youthid_chr))
+pos_netm$youthid <- as.numeric(paste0(pos_netm$classid_chr, pos_netm$youthid_chr))
 ```
 
 ```{r save positive friendship network, eval=FALSE}
@@ -514,7 +518,7 @@ haven::write_dta(neg_netm, "Data-Stata/our_data/w1_neg_netm.dta")
 
 ```{r}
 #merge network centrality measures
-w1_netm <- merge(neg_netm, pos_netm, by = "youthidCUF")
+w1_netm <- merge(neg_netm, pos_netm, by = "youthid")
 
 #now merge centrality measures w reciprocity measures
 w1_netm <- merge(w1_netm, w1_reciprocal_yc)
