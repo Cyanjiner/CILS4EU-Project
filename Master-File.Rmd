@@ -24,6 +24,7 @@ library(sna)
 library(GGally)
 library(reshape2)
 library(viridis)
+library(lme4)
 ```
 
 # Import Data
@@ -570,7 +571,7 @@ main1 <- main1 |>
   mutate(neg_isolate = as.factor(neg_isolate))
 
 main1 |> 
-  select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree) |>  
+  select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, n_mutual_bfs, non_reciprocal) |>  
   #mutate_at(vars(-c(y1_sat2)), scale) |> 
   pivot_longer(cols = -c(y1_sat2),
                names_to = "network_trait", 
@@ -583,7 +584,7 @@ main1 |>
   }) +
   stat_summary(geom = "line", fun = "mean") +
   scale_color_brewer(palette = "Paired") +
-  labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How does student network traits in class relate to their school satisfaction?')+
+  labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How do student network traits\nin class relate to their school satisfaction?')+
   theme(legend.position = "none")
 
 
@@ -609,6 +610,7 @@ p2box <- ggplot(aes(x = neg_isolate, y = y1_sat2), data = main1)+
 
 box_plots <- ggarrange(p1box, p2box, ncol = 2)
 box_plots
+
 
 #"How is being an Isolate in a Network related to School Satisfaction?")
 
@@ -963,8 +965,9 @@ write_csv(main2, "Data-Stata/our_data/all_main.csv")
 # Fit models:
 
 ```{r}
+
 main2$classid.f <- as.factor(main2$classidCUF)
-summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + schoolidCUF + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + victim_history + parent_relation + classid.f, data=main2))
+summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + victim_history + parent_relation + classid.f, data=main2))
 
 #do we run a lm with all the possible network measures? or run individual?
 ```
