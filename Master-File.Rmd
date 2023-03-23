@@ -5,7 +5,7 @@ date: "2023-03-06"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
 # Load Libraries
@@ -265,7 +265,7 @@ descr::freq(fred_mat$n_mutual_bfs)
 descr::freq(fred_mat$non_reciprocal)
 ```
 
-```{r merge positive friends counts, eval=FALSE}
+```{r merge positive friends counts}
 w1_reciprocal_yc <- merge(fred_mat,w1_bfs,by="youthidCUF")
 #write_dta(w1_pos_yc, "Data-Stata/our_data/w1_pos_yc.dta")
 ```
@@ -542,7 +542,7 @@ w1_netm <- merge(w1_netm, w1_reciprocal_yc, by = "youthidCUF")
 Merge Network Data w Youth Main Questionnaire
 
 ```{r}
-covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3")
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3","y1_tenc1","y1_tenc2")
 main1 <- w1_ym[covars]
 main1 <- merge(main1, w1_netm, by = "youthidCUF")
 
@@ -618,8 +618,8 @@ box_plots
 
 Add some plots, correlation matrix
 
-```{r}
-d_cor <- dplyr::select(main1, pos_indegree, pos_outdegree, neg_indegree, neg_outdegree) 
+```{r corr matrix}
+d_cor <- dplyr::select(main1, pos_indegree, pos_outdegree, neg_indegree, neg_outdegree, n_mutual_bfs, non_reciprocal) 
 cor(d_cor)
 
 cormat <- cor(d_cor)
@@ -779,7 +779,7 @@ descr::freq(main2$nationality,plot = FALSE)
 
 ##### Correlation Matrix
 
-```{r corr,eval=FALSE}
+```{r corr1,eval=FALSE}
 library(corrplot)
 library(Hmisc)
 
@@ -814,6 +814,7 @@ summary(main1 %>%
 Note that high values in this variable represent low economic situation
 
 ```{r eco}
+
 descr::freq(main1$y1_fact, plot = FALSE)
 ```
 
@@ -949,6 +950,42 @@ descr::freq(main2$parent_relation,plot = FALSE)
 descr::freq(main2$y1_sat2)
 ```
 
+
+### Other measures of school satisfaction
+w1: y1_asch1
+How much do you agree with "School is not for ppl like me?" 1 = strongly agree, 5 = strongly disagree, 
+w1: y1_tenc1 
+I get the help that I need from the teachers at school
+w1: y1_tenc2
+My teachers encourage me at school
+w1: y1_tenc3
+There are teachers who threat me unfairly
+
+```{r}
+# recoding problem behavioral measures
+main2 <- main2 %>% 
+  mutate_at(vars(y1_tenc1:y1_tenc2), ~ 5-.) %>% 
+  mutate(teacher_help = y1_tenc1,
+         teacher_encouragement = y1_tenc2,
+         teacher_support = y1_tenc1 + y1_tenc2)
+# check before recoding
+print("Before recoding")
+descr::freq(main1$y1_tenc1, plot = FALSE)
+print("After recoding")
+descr::freq(main2$y1_tenc1, plot = FALSE)
+print("Frequency of teacher support")
+descr::freq(main2$teacher_support)
+```
+
+```{r corr,eval=FALSE}
+library(corrplot)
+library(Hmisc)
+
+mydata.cor = cor(na.omit(main2[,c("y1_sat2","teacher_support","problem_behaviors","victim_history","delinquency_count")]), method = c("spearman"))
+mydata.cor
+corrplot(mydata.cor, method = "color")
+```
+
 ### Self-esteem
 
 #### `y1_sest1:y1_sest4` following measures:
@@ -962,12 +999,67 @@ jsonlite::write_json(main2, "Data-Stata/our_data/CILS4EU.json")
 write_csv(main2, "Data-Stata/our_data/all_main.csv")
 ```
 
+
 # Fit models:
+p-value < 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+```{r normality test}
+shapiro.test(main2$y1_sat2) # p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+```
 
-```{r}
-
+## Model1
+```{r model1}
 main2$classid.f <- as.factor(main2$classidCUF)
-summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + victim_history + parent_relation + classid.f, data=main2))
+summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + as.factor(victim_history) + parent_relation + teacher_support + classid.f, data=main2))
 
 #do we run a lm with all the possible network measures? or run individual?
+```
+
+## Model2
+```{r model2}
+main2$schoolid.f = as.factor(main2$schoolidCUF)
+main2$classid.f <- as.factor(main2$classidCUF)
+model1 = lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + y1_fact + classid.f, data=main2)
+summary(model1)
+
+#do we run a lm with all the possible network measures? or run individual?
+```
+## Using mixed model with penalized quasilikelihood (PQL) since our data are not normally distributed
+```{r glmmPQL} 
+library(MASS)
+PQL <- glmmPQL(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal  + as.factor(gender) + language + nationality + schooltype + y1_fact, random = ~1 | schoolidCUF/classidCUF, family = gaussian(link = "log"),
+    data = main2, verbose = FALSE)
+summary(PQL)
+```
+
+# Friendship network descriptive statistics
+```{r}
+stats1 = main2 %>% group_by(schoolid.f) %>% 
+  summarise(avg_pos_indegree = mean(pos_indegree),
+            avg_pos_outdegree = mean(pos_outdegree),
+            #avg_pos_isolate = mean(pos_isolate),
+            avg_neg_indegree = mean(neg_indegree),
+            avg_neg_outdegree = mean(neg_outdegree),
+            #avg_neg_isolate = mean(neg_isolate),
+            avg_n_mutual = mean(n_mutual_bfs),
+            avg_non_reciprocal = mean(non_reciprocal))
+
+summary(stats1[,-1])
+#calculate descriptive statistics for 'x' and 'z' only
+sapply(stats1[,-1], sd, na.rm=TRUE)
+```
+
+```{r}
+stats2 = main2 %>% group_by(classid.f) %>% 
+  summarise(avg_pos_indegree = mean(pos_indegree),
+            avg_pos_outdegree = mean(pos_outdegree),
+            #avg_pos_isolate = mean(pos_isolate),
+            avg_neg_indegree = mean(neg_indegree),
+            avg_neg_outdegree = mean(neg_outdegree),
+            #avg_neg_isolate = mean(neg_isolate),
+            avg_n_mutual = mean(n_mutual_bfs),
+            avg_non_reciprocal = mean(non_reciprocal))
+
+summary(stats2[,-1])
+#calculate descriptive statistics for 'x' and 'z' only
+sapply(stats2[,-1], sd, na.rm=TRUE)
 ```
