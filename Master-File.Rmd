@@ -542,7 +542,10 @@ w1_netm <- merge(w1_netm, w1_reciprocal_yc, by = "youthidCUF")
 Merge Network Data w Youth Main Questionnaire
 
 ```{r}
-covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3","y1_tenc1","y1_tenc2")
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_pbsch1","y1_pbsch2","y1_pbsch3","y1_pbsch4","y1_del1","y1_del2","y1_del3","y1_del4","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_pdisc2","y1_pdisc3","y1_pdisc4","y1_date","y1_contm","y1_gawm","y1_contf","y1_gawf","y1_penc1","y1_penc2","y1_penc3","y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3")
+
+#covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_date")
+
 main1 <- w1_ym[covars]
 main1 <- merge(main1, w1_netm, by = "youthidCUF")
 
@@ -571,7 +574,7 @@ main1 <- main1 |>
   mutate(neg_isolate = as.factor(neg_isolate))
 
 main1 |> 
-  select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, n_mutual_bfs, non_reciprocal) |>  
+  dplyr::select(y1_sat2, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, n_mutual_bfs, non_reciprocal) |>  
   #mutate_at(vars(-c(y1_sat2)), scale) |> 
   pivot_longer(cols = -c(y1_sat2),
                names_to = "network_trait", 
@@ -580,13 +583,14 @@ main1 |>
   facet_wrap(~network_trait, labeller = function(variable, value){
     value <- gsub("neg_", "Negative ", value)
     value <- gsub("pos_", "Positive ", value)
+    value <- gsub("n_mutual_bfs","# Reciprocal friends", value)
+    value <- gsub("non_reciprocal","# Non-reciprocal friends", value)
     return(value)
-  }) +
+  }, scales = "free") +
   stat_summary(geom = "line", fun = "mean") +
   scale_color_brewer(palette = "Paired") +
   labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How do student network traits\nin class relate to their school satisfaction?')+
   theme(legend.position = "none")
-
 
 
 p1 <- ggplot(aes(x = pos_isolate, y = y1_sat2), data = main1)+
@@ -838,7 +842,7 @@ Response:
 
 -   5 = never
 
-```{r problem behaviors}
+```{r problem behaviors, eval=FALSE}
 
 # recoding problem behavioral measures
 main2 <- main2 %>% 
@@ -858,7 +862,7 @@ descr::freq(main2$problem_behaviors)
 -   1 = yes
 -   2 = no \#### `y1_del2` --- Delinquent behavior: Stolen something from a shop/from someone else? \#### `y1_del3` --- Delinquent behavior: Carried a knife or weapon \#### `y1_del1` --- Delinquent behavior: Been very drunk
 
-```{r delinquency behavior}
+```{r delinquency behavior, eval=FALSE}
 main2 <- main2 %>% 
   mutate_at(vars(y1_del1:y1_del4), 
             funs(replace(., . == 2,0)))
@@ -888,7 +892,7 @@ Note that we donnot use perceived discrimination measures as they occur outside 
 
 Responses: - 1 = every day - 2 = once or several times a week - 3 = less often - 4 = never
 
-```{r victim}
+```{r victim, eval=FALSE}
 main2 <- main2 %>%
   mutate_at(vars(y1_vict1:y1_vict3),  ~4-.)
 
@@ -928,7 +932,7 @@ summary(main2 %>% mutate_at(vars(y1_vict1:y1_vict3), as.factor) %>% select(y1_vi
 -   3 = not so well
 -   4 = not well at all
 
-```{r parents relation}
+```{r parents relation, eval=FALSE}
 # if or not they have delinquency behavior
 main2 <- main2 %>% 
   mutate_at(vars(y1_gawm,y1_gawf), ~4-.) %>% 
@@ -961,7 +965,7 @@ My teachers encourage me at school
 w1: y1_tenc3
 There are teachers who threat me unfairly
 
-```{r}
+```{r, eval=FALSE}
 # recoding problem behavioral measures
 main2 <- main2 %>% 
   mutate_at(vars(y1_tenc1:y1_tenc2), ~ 5-.) %>% 
@@ -1004,6 +1008,11 @@ write_csv(main2, "Data-Stata/our_data/all_main.csv")
 p-value < 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
 ```{r normality test}
 shapiro.test(main2$y1_sat2) # p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+
+# create a Q-Q plot
+qqnorm(main2$y1_sat2)
+qqline(main2$y1_sat2)
+hist(main2$y1_sat2)
 ```
 
 ## Model1
@@ -1018,7 +1027,7 @@ summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree +
 ```{r model2}
 main2$schoolid.f = as.factor(main2$schoolidCUF)
 main2$classid.f <- as.factor(main2$classidCUF)
-model1 = lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + y1_fact + classid.f, data=main2)
+model1 = lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + y1_fact, data=main2)
 summary(model1)
 
 #do we run a lm with all the possible network measures? or run individual?
@@ -1026,10 +1035,15 @@ summary(model1)
 ## Using mixed model with penalized quasilikelihood (PQL) since our data are not normally distributed
 ```{r glmmPQL} 
 library(MASS)
-PQL <- glmmPQL(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal  + as.factor(gender) + language + nationality + schooltype + y1_fact, random = ~1 | schoolidCUF/classidCUF, family = gaussian(link = "log"),
+PQL <- glmmPQL(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal  + as.factor(gender) + language + nationality + schooltype , random = ~1 | schoolidCUF/classidCUF, family = gaussian(link = "log"),
     data = main2, verbose = FALSE)
 summary(PQL)
 ```
+
+```{r, eval=FALSE}
+stargazer::stargazer(model1, style = "all", type = "latex")
+```
+
 
 # Friendship network descriptive statistics
 ```{r}
