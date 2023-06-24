@@ -954,16 +954,9 @@ descr::freq(main2$parent_relation,plot = FALSE)
 descr::freq(main2$y1_sat2)
 ```
 
-
 ### Other measures of school satisfaction
-w1: y1_asch1
-How much do you agree with "School is not for ppl like me?" 1 = strongly agree, 5 = strongly disagree, 
-w1: y1_tenc1 
-I get the help that I need from the teachers at school
-w1: y1_tenc2
-My teachers encourage me at school
-w1: y1_tenc3
-There are teachers who threat me unfairly
+
+w1: y1_asch1 How much do you agree with "School is not for ppl like me?" 1 = strongly agree, 5 = strongly disagree, w1: y1_tenc1 I get the help that I need from the teachers at school w1: y1_tenc2 My teachers encourage me at school w1: y1_tenc3 There are teachers who threat me unfairly
 
 ```{r, eval=FALSE}
 # recoding problem behavioral measures
@@ -1003,9 +996,10 @@ jsonlite::write_json(main2, "Data-Stata/our_data/CILS4EU.json")
 write_csv(main2, "Data-Stata/our_data/all_main.csv")
 ```
 
-
 # Fit models:
-p-value < 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+
+p-value \< 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+
 ```{r normality test}
 shapiro.test(main2$y1_sat2) # p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
 
@@ -1016,6 +1010,7 @@ hist(main2$y1_sat2)
 ```
 
 ## Model1
+
 ```{r model1}
 main2$classid.f <- as.factor(main2$classidCUF)
 summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal + (1|schoolidCUF) + age + as.factor(gender) + language + nationality + schooltype + problem_behaviors + as.factor(delinquency_history) + delinquency_count + as.factor(victim_history) + parent_relation + teacher_support + classid.f, data=main2))
@@ -1024,6 +1019,7 @@ summary(lm(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree +
 ```
 
 ## Model2
+
 ```{r model2}
 main2$schoolid.f = as.factor(main2$schoolidCUF)
 main2$classid.f <- as.factor(main2$classidCUF)
@@ -1032,8 +1028,10 @@ summary(model1)
 
 #do we run a lm with all the possible network measures? or run individual?
 ```
+
 ## Using mixed model with penalized quasilikelihood (PQL) since our data are not normally distributed
-```{r glmmPQL} 
+
+```{r glmmPQL}
 library(MASS)
 PQL <- glmmPQL(y1_sat2 ~ pos_indegree + pos_outdegree + pos_isolate + neg_indegree + neg_outdegree + neg_isolate + n_mutual_bfs  + non_reciprocal  + as.factor(gender) + language + nationality + schooltype , random = ~1 | schoolidCUF/classidCUF, family = gaussian(link = "log"),
     data = main2, verbose = FALSE)
@@ -1044,8 +1042,8 @@ summary(PQL)
 stargazer::stargazer(model1, style = "all", type = "latex")
 ```
 
-
 # Friendship network descriptive statistics
+
 ```{r}
 stats1 = main2 %>% group_by(schoolid.f) %>% 
   summarise(avg_pos_indegree = mean(pos_indegree),

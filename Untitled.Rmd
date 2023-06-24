@@ -1,0 +1,682 @@
+---
+title: "326 Final Project Code"
+output: word_document
+date: "2023-05-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Libraries
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(descr) 
+library(tidyverse)
+library(labelled)
+library(janitor)
+library(pastecs)
+library(haven)
+library(readstata13)
+library(sna)
+library(GGally)
+library(reshape2)
+library(viridis)
+library(lme4)
+library(sjPlot)
+library(MASS)
+library(lme4)
+library(naniar)
+library(lattice)
+```
+
+# Import Data - Read Complete Data (network measures, all covars)
+
+```{r}
+main <- read_csv("Data-Stata/our_data/main_326.csv")
+```
+
+Check normality of outcome variable:
+
+```{r}
+main <- main |> 
+  filter(y1_sat2>0)
+
+
+shapiro.test(main$y1_sat2) # p-value < 0.05 implying that the distribution of the outcome are significantly different from normal
+
+# create a Q-Q plot
+qqnorm(main$y1_sat2)
+qqline(main$y1_sat2)
+hist(main$y1_sat2)
+
+
+
+```
+
+# Covariates:
+
+Explore Covariate Distributions
+
+```{r}
+covars <- c("youthidCUF","classidCUF","schoolidCUF","schtype_geRV","y1_sex","y1_doby","y1_nationRV","y1_lpsc1","y1_lpsc2","y1_lpsc3","y1_lpsc4","y1_fact","y1_sat2","y1_sat1", "y1_pbsch1","y1_pbsch2","y1_vict1","y1_vict2","y1_vict3","y1_pdisc1","y1_date", "y1_fcoh1","y1_fcoh2","y1_fcoh3","y1_fcoh4","y1_fcoh5","y1_pdem1","y1_pdem2","y1_pdem3","y1_pdem4","y1_pdem5","y1_pdem6","y1_pdem7","y1_pinv1","y1_pinv2","y1_pinv3", "y1_migage", "y1_educm3", "y1_educf3", "y1_gradem_geCUF", "y1_gradesc_geCUF", "y1_gradee_geCUF", "y1_repeat", "y1_iseimG", "y1_iseifG", "y1_edasp1CS", "y1_edasp2CS", "y1_edasp3CS", "y1_sspm", "y1_sspsc", "y1_sspe", "y1_seff1", "y1_seff2", "y1_valed1", "y1_asch2", "y1_asch1", "y1_tenc1", "y1_tenc2", "y1_tenc3", "y1_idsc", "y1_club", "y1_generationGCUF")
+
+
+main <- main |> 
+  mutate_at(vars(setdiff(covars, 'y1_migage')), ~ ifelse(. < 0, NA, .))
+
+
+ggplot(main, aes(x = schtype_geRV)) + 
+  geom_bar()
+
+# plot nationality
+ggplot(main, aes(x = y1_nationRV)) + 
+  geom_bar()
+
+# plot age
+ggplot(main, aes(x = y1_doby)) + 
+  geom_histogram()
+
+# plot y1_cot_sum
+ggplot(main, aes(x = y1_cot_sum)) + 
+  geom_histogram()
+
+# plot y1_lat_sum
+ggplot(main, aes(x = y1_lat_sum)) + 
+  geom_histogram()
+
+# plot sex
+ggplot(main, aes(x = y1_sex)) + 
+  geom_bar()
+
+# plot Y1_migage
+ggplot(main, aes(x = y1_migage)) + 
+  geom_histogram()
+
+# plot Y1_nationRV
+ggplot(main, aes(x = y1_nationRV)) + 
+  geom_bar()
+
+# plot Y1_edasp1cs
+ggplot(main, aes(x = y1_edasp1CS)) + 
+  geom_histogram()
+
+# plot Y1_edasp2cs
+ggplot(main, aes(x = y1_edasp2CS)) + 
+  geom_histogram()
+
+# plot Y1_edasp3cs
+ggplot(main, aes(x = y1_edasp3CS)) + 
+  geom_histogram()
+
+# plot Y1_sspm
+ggplot(main, aes(x = y1_sspm)) + 
+  geom_histogram()
+
+# plot Y1_sspsc
+ggplot(main, aes(x = y1_sspsc)) + 
+  geom_histogram()
+
+# plot Y1_sspe
+ggplot(main, aes(x = y1_sspe)) + 
+  geom_histogram()
+
+# plot Y1_gradem_geCUF
+ggplot(main, aes(x = y1_gradem_geCUF)) + 
+  geom_bar()
+
+# plot Y1_grades_geCUF
+ggplot(main, aes(x = y1_gradesc_geCUF)) + 
+  geom_bar()
+
+# plot Y1_gradee_geCUF
+ggplot(main, aes(x = y1_gradee_geCUF)) + 
+  geom_bar()
+
+# plot Y1_repeat
+ggplot(main, aes(x = y1_repeat)) + 
+  geom_bar()
+
+# plot Y1_seff1
+ggplot(main, aes(x = y1_seff1)) + 
+  geom_histogram()
+
+# plot Y1_asch1
+ggplot(main, aes(x = y1_asch1)) + 
+  geom_histogram()
+
+# plot Y1_asach2
+ggplot(main, aes(x = y1_asch2)) + 
+  geom_histogram()
+
+# plot Y1_valed1
+ggplot(main, aes(x = y1_valed1)) + 
+  geom_histogram()
+```
+
+# MLM Analyses
+
+## Clean/prep data for MLM analyses
+
+```{r}
+main <- main |> 
+  #create age variable
+  mutate(age = 2010 - main$y1_doby) |> 
+  #create immigrant variable
+  mutate(immigrant = if_else(y1_generationGCUF == 0, 0, 1)) |> 
+  #reverse code some of the likert (numeric) items:
+  mutate(
+    Y1_fact = 5 - y1_fact,
+    y1_vict1 = 5 - y1_vict1,
+    y1_vict2 = 5 - y1_vict2,
+    y1_vict3 = 5 - y1_vict3,
+    y1_pdisc1 = 5 - y1_pdisc1,
+    y1_fcoh1 = 5 - y1_fcoh1,
+    y1_idsc = 5 - y1_idsc
+  ) |> 
+  mutate(
+    Y1_pbsch1 = 6 - y1_pbsch1,
+    y1_pbsch2 = 6 - y1_pbsch2,
+    y1_pdem1 = 6 - y1_pdem1,
+    y1_pdem2 = 6 - y1_pdem2,
+    y1_pdem3 = 6 - y1_pdem3,
+    y1_pdem4 = 6 - y1_pdem4,
+    y1_pdem5 = 6 - y1_pdem5,
+    y1_pdem6 = 6 - y1_pdem6,
+    y1_pdem7 = 6 - y1_pdem7,
+    y1_sspm = 6 - y1_sspm,
+    y1_sspsc = 6 - y1_sspsc,
+    y1_sspe = 6 - y1_sspe,
+    y1_seff1 = 6 - y1_seff1,
+    y1_seff2 = 6 - y1_seff2,
+    y1_asch2 = 6 - y1_asch2,
+    y1_valed1 = 6 - y1_valed1,
+    y1_tenc1 = 6 - y1_tenc1,
+    y1_tenc2 = 6 - y1_tenc2,
+    y1_tenc3 = 6 - y1_tenc3
+  )
+
+  
+
+d_clean <- main |> 
+  # change gender/ nationality / school type as factor
+  mutate(sex = as.factor(y1_sex),
+         immigrant = as.factor(immigrant),
+         schooltype = as.factor(schtype_geRV),
+         nationality = as.factor(y1_nationRV),
+         repeated_year = as.factor (y1_repeat),
+         mom_university = as.factor(y1_educm3),
+         dad_university = as.factor(y1_educf3),
+         club_member = as.factor(y1_club)) |> 
+        #calculate composites:
+          mutate(sch_problem_behaviors = rowMeans(cbind(y1_pbsch1, y1_pbsch2)),
+           victimization = rowSums(cbind(y1_vict1, y1_vict2, y1_vict3)),
+           family_cohesion = rowMeans(cbind(y1_fcoh1, y1_fcoh2, y1_fcoh3)),
+           parent_support = rowMeans(cbind(y1_pdem1, y1_pdem5, y1_pdem6, y1_pdem7)),
+           parent_strict = rowMeans(cbind(y1_pdem2, y1_pdem3, y1_pdem4)),
+           subj_school_perform = rowMeans(cbind(y1_sspm, y1_sspsc, y1_sspe)),
+           sch_confidence = rowMeans(cbind(y1_seff2, y1_seff1, y1_asch1)),
+           sch_important = rowMeans(cbind(y1_asch2, y1_valed1)),
+           teacher_support = rowMeans(cbind(y1_tenc1, y1_tenc2)),
+           unfair_teach = y1_tenc3,
+           identity_german = y1_idsc,
+           ISEI_mom = y1_iseimG,
+           ISEI_dad = y1_iseifG,
+           ISEI_parent = ifelse(is.na(ISEI_dad), ISEI_mom,
+                      ifelse(is.na(ISEI_mom), ISEI_dad,
+                             rowMeans(cbind(ISEI_dad,ISEI_mom)))),
+           mig_age = y1_migage,
+           sch_discrimination = y1_pdisc1,
+           cant_afford = y1_fact,
+           german_skills = rowMeans(cbind(y1_lpsc1, y1_lpsc2, y1_lpsc3, y1_lpsc4)),
+           age = as.numeric(age),
+           class_size = as.numeric(class_size),
+           sch_satisfaction = as.numeric(y1_sat2),
+           lang_test = as.numeric(y1_lat_sum),
+           cog_test = as.numeric(y1_cot_sum)) 
+
+d_analysis <- d_clean |> 
+  dplyr::select(lang_test, cog_test, sch_satisfaction, class_size, age, german_skills, cant_afford, sch_discrimination, mig_age, ISEI_dad, ISEI_mom, identity_german, unfair_teach, teacher_support, sch_important, sch_confidence, subj_school_perform, parent_strict, parent_support, family_cohesion, victimization, club_member, dad_university, mom_university, repeated_year, nationality, schooltype, immigrant, sex, youthidCUF, classidCUF, schoolidCUF, pos_indegree, pos_outdegree, pos_isolate, neg_indegree, neg_outdegree, neg_isolate, n_mutual_bfs, non_reciprocal, ISEI_parent)
+
+```
+
+Mean-center and recode dummy variables
+
+```{r}
+numeric_vars <- c("age", "mig_age", "class_size", "subj_school_perform", "cog_test", "lang_test", "ISEI_parent", "victimization", "neg_indegree", "neg_outdegree", "n_mutual_bfs", "pos_indegree", "pos_outdegree", "non_reciprocal")
+
+numeric_vars <- setNames(numeric_vars, str_c(numeric_vars, "_c")) 
+numeric_vars
+
+d_analysis <- d_analysis |> 
+  mutate(across(numeric_vars, ~ as.numeric(.))) |> 
+  mutate(across(numeric_vars, ~. - mean(., na.rm = TRUE))) |> 
+  mutate(german = if_else(nationality == 3, 0, 1)) |> 
+  mutate(repeated_year = if_else(repeated_year ==1, 0, 1)) |> 
+  mutate(mom_university = if_else(mom_university ==2, 0, 1)) |> 
+  mutate(dad_university = if_else(dad_university ==2, 0, 1)) |> 
+  mutate(club_member = if_else(club_member ==2, 0, 1)) |> 
+  mutate(sch_combo = if_else(schooltype == 2, 1, 0)) |> 
+  mutate(sch_int = if_else(schooltype==3, 1, 0)) |> 
+  mutate(sch_comp = if_else(schooltype==4, 1,0)) |> 
+  mutate(sch_secondary = if_else(schooltype==5, 1,0)) |> 
+  mutate(sch_specneed = if_else(schooltype==6, 1,0)) |> 
+  mutate(sexgirl = if_else(sex == 2, 1, 0))
+  
+```
+
+```{r}
+miss_var_summary(d_analysis)
+
+#get rid of highly missing vars to maximize sample:
+d_analysis <- d_analysis |> 
+  dplyr::select(-c(mom_university, dad_university, ISEI_mom, ISEI_dad)) |> 
+                      na.omit()
+```
+
+```{r}
+write_csv(d_analysis, "Data-Stata/our_data/d_analysis_326.csv")
+```
+
+```{r}
+d_analysis <- read_csv("Data-Stata/our_data/d_analysis_326.csv") 
+```
+
+m1: no random intercepts
+
+```{r}
+# m1 <- glm(sch_satisfaction ~ 1, data = d_analysis,
+#           family = gaussian(link = "log"))
+
+m1 <- lm(sch_satisfaction ~ 1, data = d_analysis)
+summary(m1)
+```
+
+\*Hi Emma, great work. And for your question, it would be better to add variables one by one and compare the models to be able to interpret the results more clearly.
+
+## Hypothesis 1: Null Model (Intercept-Only)
+
+The null hypothesis here is that there is no correlation between students within different classes and schools on the outcome: school satisfaction. The alternative would be that there is systematic between-class and between-school variation in students' school satisfaction ratings.
+
+m2: random intercepts (class)
+
+```{r}
+m2 <- lmer(sch_satisfaction ~ (1 | classidCUF), data = d_analysis,
+          REML = F)
+summary(m2)
+```
+
+ICC:
+
+```{r}
+randompar <- as_tibble(VarCorr(m2))
+randompar
+var_class <- randompar[1,4]
+var_pupil <- randompar[2,4]
+var_class / (var_pupil + var_class)
+
+.072 / (.072 + 3.92)
+```
+
+1.8% of the variation in school satisfaction is on the class level
+
+```{r}
+(2* logLik(m2)) - (2* logLik(m1))
+
+tab_model(m1, m2)
+```
+
+m3: random intercepts (school)
+
+```{r}
+m3 <- lmer(sch_satisfaction ~ (1 | schoolidCUF/classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m3)
+
+```
+
+```{r}
+anova(m3, m2)
+tab_model(m2, m3)
+```
+
+The variance explained at the school level overlaps strongly with that explained by class (we see classidCUF random effect variance --\> 0)
+
+Likely not suitable for 3 levels; we choose to only use the class-level from here on out. In addition, our only school-level variable (school type) did not seem to explain any of the variance in our school satisfaction outcome
+
+## Hypothesis 2: Add Level 1 Predictors
+
+The null hypothesis is that there is no relationship between level 1 (student-level) predictors (student's social network measures (centrality, reciprocity), student-level demographic covariates) and outcome. The alternative is there is a relationship between network measures and school satisfaction
+
+m4: add student-level covariates
+
+```{r}
+# m4 <- lmer(sch_satisfaction ~ (1 | schoolidCUF) + (1 | classidCUF)
+#            + pos_indegree + pos_outdegree + neg_indegree + neg_outdegree + pos_isolate + neg_isolate + n_mutual_bfs + non_reciprocal
+#              + sex + lang_test + cog_test + age + nationality + immigrant, data = d_analysis,
+#           REML = F, na.action = na.omit)
+# summary(m4)
+
+m4 <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m4)
+
+
+```
+
+```{r}
+anova(m4, m2)
+
+tab_model(m2, m4)
+```
+
+Model 4 does significantly better than model 2 (p \< .001)! We reject the hypothesis that level 1 predictors do not explain our school satisfaction outcome
+
+Calculate the r2s (explained variance) as explained in the lecture:
+
+```{r}
+#classidCUF:
+(0.073 - 0.026)/0.073
+
+#residual:
+(3.92- 3.72)/3.92
+
+```
+
+Now let's see if the effects of network measures on school satisfaction varies across other level 1 predictors (e.g., immigrant status, gender).
+
+age:
+
+```{r}
+m4_ageint <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) +  age_c*pos_indegree_c + age_c*pos_outdegree_c + age_c*neg_indegree_c + age_c*neg_outdegree_c + age_c*pos_isolate + age_c*neg_isolate + age_c*n_mutual_bfs_c + age_c*non_reciprocal_c, data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m4_ageint)
+
+anova(m4_ageint, m4)
+tab_model(m4, m4_ageint)
+```
+
+immigrant status:
+
+```{r}
+m4_immint <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) +  immigrant*pos_indegree_c + immigrant*pos_outdegree_c + immigrant*neg_indegree_c + immigrant*neg_outdegree_c + immigrant*pos_isolate + immigrant*neg_isolate + immigrant*n_mutual_bfs_c + immigrant*non_reciprocal_c, data = d_analysis,
+          REML = F, na.action = na.omit)
+#summary(m4_immint)
+
+anova(m4_immint, m4)
+tab_model(m4, m4_immint)
+```
+
+victimization:
+
+```{r}
+m4_victint <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) +  victimization_c*pos_indegree_c + victimization_c*pos_outdegree_c + victimization_c*neg_indegree_c + victimization_c*neg_outdegree_c + victimization_c*pos_isolate + victimization_c*neg_isolate + victimization_c*n_mutual_bfs_c + victimization_c*non_reciprocal_c, data = d_analysis,
+          REML = F, na.action = na.omit)
+
+#summary(m4_victint)
+
+anova(m4_victint, m4)
+tab_model(m4, m4_victint)
+```
+
+sex:
+
+```{r}
+m4_sexint <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c, data = d_analysis,
+          REML = F, na.action = na.omit)
+#summary(m4_sexint)
+
+anova(m4_sexint, m4)
+tab_model(m4, m4_sexint)
+```
+
+the effect of neg isolate, n mutual bfs, and non reciprocal friends on school satisfaction different for girls and boys. Specifically, it suggests that the negative effect of neg outdegree on school satisfaction is stronger for girls than for boy
+
+None of these interaction effects significantly improve our model... we will just stick with m4? Or include?
+
+## **Hypothesis 3 - Add level 2 (and 3?) predictors:**
+
+The null hypothesis is that there is no significant relationship between level 2 and level 3 predictors and the outcome. In other words, classroom-level variables (e.g., class size) and school-level variables (school type, school stratum (by proportion immigrant students)) have no relationship to students' school satisfaction. The alternative is that these class- and school-level variables do significantly correlate to school satisfaction.
+
+\*Note: we decided not to use school as level 3 in our model, but we can still include school type as a covariate
+
+m5: add class-level predictors (class size)
+
+Possible limitation: not more class-level or teacher-level variables (teacher experience, etc)
+
+```{r}
+
+m5 <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c, data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m5)
+```
+
+```{r}
+anova(m5, m4)
+
+tab_model(m4, m5)
+```
+
+Adding our class-level variable (class size) doesn't seem to improve our model significantly. However, we want to interact it with the network measures later to see if networks matter more/less in smaller/bigger classes, so we'll keep it
+
+m6: add school-level predictors (school type, reference = lower secondary school
+
+```{r}
+m6 <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + sch_combo + sch_int + sch_comp + sch_secondary, data = d_analysis,
+          REML = F, na.action = na.omit) 
+  
+  
+summary(m6)
+```
+
+```{r}
+anova(m6, m5)
+tab_model(m5, m6)
+```
+
+\*\*Adding school type doesn't significantly improve our model. Should we get rid??
+
+Let's stick with m5 for now
+
+## **Hypothesis 4 - Add random slopes:**
+
+The null hypothesis is the relationship between our student-level predictors (network measures and covariates) and the outcome are the same across all groups. In other words, the effect of the network measures on a student's school satisfaction is constant within all of the classes and all of the schools. The alternative is that the effect of these student-level variables is not the same within all classes (level 2) and schools (level 3).
+
+m7: **A model with random slopes,** Let's allow the effects of our network measures to vary across classes
+
+```{r}
+
+
+#Let 'Positive Out degree' vary:
+m7_rposout <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + (1 + pos_outdegree_c | classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m7_rposout)
+
+
+
+m7 <-lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + (1 + pos_outdegree_c | classidCUF) + (1 + pos_indegree_c | classidCUF) + (1 + neg_outdegree_c | classidCUF) + (1 + neg_indegree_c | classidCUF) + (1 + n_mutual_bfs_c | classidCUF) +(1 + non_reciprocal_c | classidCUF) + (pos_isolate | classidCUF) + (neg_isolate | classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+
+#Let number of mutual friends vary
+m7_rnbfs <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c +  (1 + n_mutual_bfs_c | classidCUF) , data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m7_rnbfs)
+
+#Let negative in degree vary:
+m7_rnegin <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + (1 + neg_indegree_c | classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+summary(m7_rnegin)
+
+anova(m7_rposout, m5)
+anova(m7_rnbfs, m5)
+anova(m7_rnegin, m5)
+
+```
+
+\*\*Singularity warning!
+
+We get a singularity warning when including any network measures but the 3 listed above... none of them on their own significantly improve our model from m5
+
+No evidence for random slopes???
+
+m8: try a few more variables allowing for random slope (sex, age, immigrant)
+
+```{r}
+
+m8 <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + (1 + immigrant | classidCUF) + (1 + sex | classidCUF) + (1 + age_c | classidCUF), data = d_analysis,
+          REML = F, na.action = na.omit)
+  
+summary(m8)
+
+anova(m8, m5)
+tab_model(m5, m8)
+```
+
+Still no evidence for model improvement with random slopes
+
+## **Hypothesis 5 - Add cross-level interactions:**
+
+The null hypothesis is that there is no systematic variation between student-level predictors (network measures, demographic covars) and outcome school satisfaction across different values of level 2 and level 3 (class- and school-level covariates). For example, the effect of network centrality doesn't vary with the value of the class size, or the school type. The alternative is that there is cross-level interaction, and a class-level or school-level variable partly explains why the relationship between student-level network measures and school satisfaction varies across classes and schools.
+
+m9: We now always add a covariance between intercept and slope.
+
+```{r}
+m9 <- lmer(sch_satisfaction ~  pos_indegree_c + pos_outdegree_c + neg_indegree_c + neg_outdegree_c + pos_isolate + neg_isolate + n_mutual_bfs_c + non_reciprocal_c
+             + sexgirl + lang_test_c + cog_test_c + age_c + immigrant + victimization_c + ISEI_parent_c
+           + (1 | classidCUF) + class_size_c + sexgirl*pos_indegree_c + sexgirl*pos_outdegree_c + sexgirl*neg_indegree_c + sexgirl*neg_outdegree_c + sexgirl*pos_isolate + sexgirl*neg_isolate + sexgirl*n_mutual_bfs_c + sexgirl*non_reciprocal_c + class_size_c*pos_indegree + class_size_c*pos_outdegree + class_size_c*neg_indegree + class_size_c*neg_outdegree + class_size_c*pos_isolate + class_size_c*neg_isolate + class_size_c*n_mutual_bfs + class_size_c*non_reciprocal, data = d_analysis,
+          REML = F, na.action = na.omit)
+
+
+summary(m9)
+```
+
+```{r}
+anova(m9, m5)
+tab_model(m5, m9)
+```
+
+# Visualizations
+
+```{r}
+ggplot(data = d_analysis, 
+       aes(x = fct_reorder(as.character(classidCUF), 
+                           sch_satisfaction),
+           y = sch_satisfaction)) + 
+  geom_point(size = 0.5,
+             alpha = 0.5) +
+  stat_summary(fun = "mean", 
+               geom = "point", 
+               shape = 21, 
+               size = 2, 
+               fill = "darkblue",
+               color = "#4D4F53")+
+  labs(y = 'School Satisfaction', x = 'Class ID')+
+  theme_classic() +
+  theme(axis.text.x = element_blank()) 
+
+```
+
+```{r}
+m_ols_b <- list()
+m_ols_fv <- list()
+
+unique_classidCUF <- unique(d_analysis$classidCUF)
+for (i in unique_classidCUF){
+  myclass <- filter(d_analysis, classidCUF == i)
+  mymodel <- lm(sch_satisfaction ~ neg_indegree, data = myclass)
+  m_ols_b[[i]] <-  mymodel$coefficients[[2]]
+  m_ols_fv[[i]] <- mymodel$fitted.values
+}  
+
+
+d_analysis |>
+  mutate(sch_satisfaction_hat_ols = unlist(m_ols_fv)) |>
+  ggplot(aes(x = neg_indegree, 
+             y = sch_satisfaction_hat_ols, 
+             group = as.factor(classidCUF))) + 
+  geom_line() + 
+  theme(legend.position = "none") + 
+  xlab("Neg-Indegree") +
+  ylab("Predicted School Satisfaction") +
+  ggtitle("Sample of Random Slopes \n(Negatative Indegree Across Classes")+
+  theme_classic()
+```
+
+```{r}
+d_variables <- d_analysis |> 
+  dplyr::select(ISEI_parent, victimization, pos_indegree, pos_outdegree, neg_indegree, neg_outdegree, neg_isolate, pos_isolate, n_mutual_bfs, non_reciprocal, sexgirl, age, immigrant, cog_test, lang_test) 
+
+library(stargazer)
+stargazer(as.data.frame(d_variables), type = "text", digits = 2)
+
+```
+
+Notes for future work:
+
+Dealing with non-normality:
+
+```{r}
+
+#new model <- glmmPQL()
+
+#or 
+
+# m1 <- glmer(rep1 ~ male 
+#             + pped 
+#             + msesc 
+#             + (1 | classlid),  
+#             data = uthai1, 
+#             family = gaussian(link = "logit"), 
+#             na.action = na.omit)
+
+# consider using a gamma or inverse Gaussian family with a log link function in the generalized linear model (GLM). 
+# 
+
+# The log link function is commonly used with gamma and inverse Gaussian distributions, as it can help to model the relationship between the predictor variables and the outcome variable, particularly when the outcome variable is positively skewed.
+# Exampls:
+# model <- glm(y ~ x1 + x2, family = inverse.gaussian(link = "log"), data = mydata)
+# summary(model)
+```
+
+explore moderation: interplay of negative and positive ties; protective of victimization? of poor family environment?
+
+# Cluster Analysis
+
+What variables do I need to include to do cluster analysis??
+
+```{r}
+# library(stats)
+# d_cluster <- d_analysis |> 
+#   dplyr::select(class_size, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, pos_isolate, neg_isolate, non_reciprocal, n_mutual_bfs, lang_test, cog_test)
+# 
+# k = 3
+# my_clusters <- kmeans(d_cluster, k)
+```
+
+# 

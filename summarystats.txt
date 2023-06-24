@@ -1,0 +1,23 @@
+
+Table 1. Descriptive Statistics
+=============================================
+Statistic         N  Mean  St. Dev. Min  Max 
+---------------------------------------------
+sexgirl          807 0.57    0.50    0    1  
+age              807 14.65   0.67    13   17 
+immigrant        807 0.05    0.22    0    1  
+victimization    807 1.29    0.47   1.00 3.67
+schooltype       807 3.44    1.36    1    5  
+class_size       807 17.18   3.93    10   26 
+lang_test        807 13.38   4.03    2    25 
+cog_test         807 20.19   3.48    1    27 
+neg_indegree     807 2.15    2.72    0    17 
+neg_outdegree    807 3.21    1.62    0    5  
+pos_indegree     807 2.95    1.82    0    9  
+pos_outdegree    807 3.89    1.30    0    5  
+pos_isolate      807 0.01    0.11    0    1  
+neg_isolate      807 0.02    0.15    0    1  
+n_mutual_bfs     807 2.05    1.29    0    5  
+non_reciprocal   807 2.37    1.24    0    5  
+sch_satisfaction 807 6.46    1.99    1    10 
+---------------------------------------------

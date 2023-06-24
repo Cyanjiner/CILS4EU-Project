@@ -50,6 +50,7 @@ school3928 <- school3928 %>%
 ```
 
 [Tutorial on labelled/unlabelled object in R](https://cran.r-project.org/web/packages/labelled/vignettes/intro_labelled.html)
+
 ```{r data preprocess for school3928 network}
 # data only includes friendship measures
 network3928 <- school3928 %>% 
@@ -89,7 +90,8 @@ for (i in 1:nrow(network3928_clean)) {
 mat[1:4,]
 ```
 
-### Friendship Network at School 3928 --> All 5 best friends
+### Friendship Network at School 3928 --\> All 5 best friends
+
 Using `pivot_longer()` functions in `tidyverse` to reshape our data from wide to long ([Relevant Tutorial here](https://tavareshugo.github.io/r-intro-tidyverse-gapminder/09-reshaping/index.html))
 
 ```{r reshape data}
@@ -120,6 +122,7 @@ ggnet2(bfs_nw,
 # social ties & instrumental ties
 
 # All Schools
+
 ```{r data preprocess for all schools}
 # data only includes friendship measures
 w1_pos <- w1_yc %>% 
@@ -194,6 +197,7 @@ write_dta(w1_pos_yc, "Data-Stata/our_data/w1_pos_yc.dta")
 ```
 
 ## Friendship networks in all schools
+
 ```{r network in all school}
 w1_pos_long_net <- w1_pos_long %>% 
   filter(!is.na(friendid)) %>% 
@@ -216,6 +220,7 @@ ggnet2(bfs_nw_all,
 Plotting networks is nice, but sometimes you want to take social network measures into account for your analyses. For example, we can use social network measures as predictors of something. We will show you how to calculate a bunch of network measures and then show you how to use some in a linear regression model. We will remake our networks to be directional.
 
 #### Construct Adjacency matrix
+
 ```{r construct adjacency matrix ALL}
 students <- unique(w1_pos_long$youthidCUF)
 mat <- matrix(0, nrow=length(students), ncol = length(students))
@@ -226,6 +231,7 @@ mat[1:4,1:4]
 ```
 
 #### Fill Adjacency Matrix
+
 ```{r fill adjacency matrix ALL}
 i <- 1
 for (i in 1:length(students)) {
@@ -238,6 +244,7 @@ mat[1:5,1:5]
 ```
 
 #### Construct Network for All Schools
+
 ```{r build network ALL}
 bfs_nw_all <- network(mat, 
                       matrix.type = "adjacency",
@@ -246,13 +253,17 @@ bfs_nw_all <- network(mat,
 ```
 
 ### Density
+
 The function `gden()` returns how dense a network is. If there are many ties the network is called dense. If there are few ties the network is called sparse. `gden()` returns **the sum of tie values by the number of possible ties.** For binary data it thus reflects the proportion of ties of all possible ties and for valued data it reflects the average strength of all possible ties.
+
 ```{r network density}
 gden(bfs_nw_all)
 ```
 
 ### Transitivity
+
 Transitivity is a measure that reflects **to what extent nodes in networks are connected by shared connections.** For example, in friendship networks we often see that friends of friends are often friends too. You can get this measure with `gtrans()`
+
 ```{r transitivity}
 gtrans(bfs_nw_all)
 ```
@@ -262,11 +273,9 @@ gtrans(bfs_nw_all)
 There are many measures of centrality. They can be **on the network level** or **on the node level**. A general network level indication of **how centralized a network is the Freeman measure of centrality.**
 
 For individual nodes, you can use the `degree()` command. Same here.
+
 ```{r node centrality,eval=FALSE}
 degree(bfs_nw_all, cmode = "indegree")
 degree(bfs_nw_all, cmode = "outdegree")
 degree(bfs_nw_all)
 ```
-
-
-
