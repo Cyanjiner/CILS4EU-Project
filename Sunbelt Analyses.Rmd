@@ -143,8 +143,8 @@ students <- w1_friends |>
   dplyr::select(youthidCUF)
 
 indegree <- as.data.frame(students) |> 
-  mutate(neg_ingoing = 0) |> 
-  mutate(pos_ingoing = 0) 
+  mutate(pos_ingoing = 0) |> 
+  mutate(neg_ingoing = 0) 
  
 colnames(indegree)[1] <- "youthidCUF"
 indegree <- indegree |> mutate(youthidCUF = as.character(youthidCUF))
@@ -222,8 +222,7 @@ d_networks <- merge(w1_centrality, fred_mat, by = 'youthidCUF') |>
 
 d_networks <- d_networks |> 
   mutate(pos_isolate = ifelse(pos_indegree == 0 & pos_outdegree == 0, 1, 0),
-         neg_isolate = ifelse(neg_indegree == 0 & pos_indegree == 0, 1, 0))
-
+         neg_isolate = ifelse(neg_indegree == 0 & neg_outdegree == 0, 1, 0)) 
 
 #***Crosscheck numbers with w1_friends data
 d_networks |> filter(pos_outdegree == 0) |> count()
@@ -283,6 +282,8 @@ hist(main$y1_sat2)
 Rename variables, change classes, create coariates
 
 ```{r}
+main <- main |> 
+  mutate_at(vars(setdiff(covars, 'y1_migage')), ~ ifelse(. < 0, NA, .))
 
 d_clean <- main |> 
   #create additional covariates:  
@@ -292,7 +293,6 @@ d_clean <- main |>
   mutate(immigrant = if_else(y1_migage < 0, 0, 1)) |> 
   # change gender/ nationality / school type as factor
   mutate(sex = as.factor(y1_sex),
-         immigrant = as.factor(immigrant),
          schooltype = as.factor(schtype_geRV),
          nationality = as.factor(y1_nationRV),
          ISEI_mom = y1_iseimG,
@@ -303,11 +303,21 @@ d_clean <- main |>
          lang_test = as.numeric(y1_lat_sum),
          cog_test = as.numeric(y1_cot_sum),
          cog_abil = rowMeans(cbind(y1_cot_sum, y1_lat_sum)),
-         ISEI_parent = rowMeans(cbind(ISEI_mom, ISEI_dad)))
+         ISEI_parent = rowMeans(cbind(ISEI_mom, ISEI_dad), na.rm = TRUE))
 
 d_analysis <- d_clean |> 
-  dplyr::select(ISEI_parent, cog_abil, sch_satisfaction, class_size, age,nationality, schooltype, immigrant, sex, youthidCUF, classidCUF, schoolidCUF, pos_indegree, pos_outdegree, pos_isolate, neg_indegree, neg_outdegree, neg_isolate, reciprocal, non_reciprocal)
+  dplyr::select(ISEI_parent, cog_abil, sch_satisfaction, class_size, age,nationality, schooltype, immigrant, sex, youthidCUF, classidCUF, schoolidCUF, pos_indegree, pos_outdegree, pos_isolate, neg_indegree, neg_outdegree, neg_isolate, reciprocal, non_reciprocal) |> na.omit()
 
+```
+
+```{r}
+d_variables <- d_clean |> 
+  dplyr::select(sex, age, immigrant, schooltype, class_size, lang_test, cog_test, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, pos_isolate, neg_isolate, reciprocal, non_reciprocal, sch_satisfaction) |> 
+  na.omit()
+
+
+stargazer(as.data.frame(d_variables), type = "text", out = "summarystats.txt",
+          title = "Table 1. Descriptive Statistics", digits = 2)
 ```
 
 Mean-center and dummy code:
@@ -326,157 +336,38 @@ d_analysis <- d_analysis |>
   mutate(sch_comp = if_else(schooltype==4, 1,0)) |> 
   mutate(sch_secondary = if_else(schooltype==5, 1,0)) |> 
   mutate(sch_specneed = if_else(schooltype==6, 1,0)) |> 
-  mutate(sexgirl = if_else(sex == 2, 1, 0)) 
+  mutate(sexgirl = if_else(sex == 2, 1, 0))
 
 
 # Remove attributes from columns
-d_analysis <- data.frame(lapply(d_analysis, unclass))
+d_analysis <- data.frame(lapply(d_analysis, unclass)) |> 
+  dplyr::select(-c(sex, nationality))
+```
 
+```{r}
+factor_vars <- c("pos_isolate", "neg_isolate", "immigrant", "sexgirl", "youthidCUF", "classidCUF", "schoolidCUF", "german", "sch_combo", "sch_int", "sch_comp", "sch_secondary", "sch_specneed")
+
+d_analysis <- d_analysis |> 
+  mutate_at(vars(all_of(factor_vars)), as.factor) 
 
 write_csv(d_analysis, "Data-Stata/our_data/d_analysis_sunbelt.csv")
-```
-
-##DO NOT RUN HERE; PROBLEMSHOOTING THIS CODE
-
-# Calculate Positive Friendship Network measures
-
-Select variables we use to create positive network (5 bf nomination in class):
-
-```{r}
-
-class1 <- w1_c |>
-  dplyr::select(-y1_intdat_ycRV, -y1_vers_yc)
-
-pos_vars <- c("y1_bfs_0", "y1_bfs_1", "y1_bfs_2", "y1_bfs_3", "y1_bfs_4", "y1_bfs_5")
-class1[pos_vars][class1[pos_vars] < 0] <- NA
-class1 <- class1 |> filter(!is.na(y1_bfs_0))
-descr::freq(class1$y1_bfs_0)
 
 ```
 
-Count \# Students
-
-```{r}
-
-class1.l <- class1 |> 
-  mutate(y1_bfs_0 = as.numeric(as.character(y1_bfs_0))) |> 
-  dplyr::select(youthidCUF, y1_bfs_1:y1_bfs_5) |> 
-  pivot_longer(cols = y1_bfs_1:y1_bfs_5,
-               names_to = "best_friends",
-               values_to = "alteridCUF") |> 
-  dplyr::select(youthidCUF, alteridCUF) 
-
-
-print("Number of Unique Students in subsample")
-length(unique(class1.l$youthidCUF))
-
-```
-
-Count \# Classes
-
-```{r}
-
-myids <- as.data.frame(unique(class1[c("youthidCUF","classidCUF")]))
-classids <- unique(class1$classidCUF)
-class1.l <- merge(class1.l, myids, by = "youthidCUF", all.x = TRUE)
-classids <- unique(class1.l$classid)
-
-nclass <- length(unique(class1.l$classid))
-print("Number of classes in subsample")
-nclass
-
-```
-
-Create positive networks in each class; calculate pos in/out degree
-
-```{r}
-
-# make sure you take only the last two digits of youthid otherwise sna
-# thinks that there are a thousand actors
-class1.l <- class1.l |> 
-  mutate(youthid = youthidCUF %% 100,
-         alterid = alteridCUF %% 100) |> 
-  dplyr::select(youthid, alterid, classidCUF) |> na.omit()
-# THIS IS NOT RIGHT - WON'T THIS REMOVE ALL PEOPLE WHO DIDN'T LIST ALL 5? cannot omit na
-
-#create empty list of ids and nominations in each class
-el.list <- list()
-#create empty list of class ids
-class.list <- list()
-
-
-for (i in 1:nclass){
-  el.list[[i]] <- class1.l[class1.l$classidCUF == classids[i],]
-  class.list[[i]] <- classids[i]
-}
-
-
-net.list <- lapply(el.list, as.network.matrix, matrix.type = "edgelist", 
- ignore.eval = FALSE, names.eval = "classidCUF")	
-
-```
-
-Calculate degree centrality
-
-```{r}
-
-mat.list <- lapply(net.list, as.matrix)
-indegree.list <- lapply(mat.list, degree, cmode = "indegree", gmode = "digraph", diag = FALSE)
-outdegree.list <- lapply(mat.list, degree, cmode = "outdegree", gmode = "digraph", diag = FALSE)
-
-#WHY ISN'T THIS WORKING??
-```
-
-```{r unlist positive network measures}
-a.list <- lapply(net.list, get.vertex.attribute, "vertex.names")
-netm <- mapply(cbind, a.list, class.list, indegree.list, outdegree.list)
-netm <- lapply(netm, as.data.frame)
-netm <- as.data.frame(do.call(rbind, netm))
-names(netm) <- c("youthid", "classid", "pos_indegree", "pos_outdegree")
-
-# computate isolate measure
-pos_netm <- netm %>% 
-  #this is not correct here... we need to include everyone who did not lis anyone (y1_bfs_0 == 1)
-  mutate(pos_isolate = ifelse(pos_indegree == 0 & pos_outdegree == 0, 1, 0),
-         youthid_chr = as.character(youthid),
-         classid_chr = as.character(classid),
-         youthid_nchr = nchar(youthid_chr) # count the number of characters
-         )
-
-# add 0 to single digit youthid
-pos_netm$youthid_chr[netm$youthid_nchr == 1] <- paste0("0", netm$youthid_chr[netm$youthid_nchr == 1])
-
-# change to numeric youthid
-pos_netm$youthid <- as.numeric(paste0(pos_netm$classid_chr, pos_netm$youthid_chr))
-pos_netm <- pos_netm |> 
-  select(youthid, classid, pos_indegree, pos_outdegree, pos_isolate)
-
-```
-
-Left off here for now... want to continue working on this but degree() function not working?
-
-# Cluster Analysis
+# Cluster Analysis on network measures
 
 ```{r}
 d_analysis <- read_csv("Data-Stata/our_data/d_analysis_sunbelt.csv") |> 
   na.omit()
-```
 
-What variables do I need to include to do cluster analysis??
-
-### K-means clustering on network measures, class size
-
-```{r}
 d_cluster <- d_analysis |> 
   dplyr::select(neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, pos_isolate, neg_isolate, non_reciprocal, reciprocal) 
 
-
 d_cluster_z <- d_cluster |> 
     mutate(across(-c(pos_isolate, neg_isolate), scale))
-
-
-
 ```
+
+### K-means clustering
 
 run k-means model for 1-15; collect within-cluster sum of squares and plot scree plot:
 
@@ -559,6 +450,20 @@ autoplot(network_clusters,
 
 Looks like it's not doing a great job...
 
+## Correlation
+
+Let's take a look at the correlation heatmaps:
+
+```{r}
+# Prepare your data with categorical variables as factors and numerical variables as numeric
+# For example:
+numerical_vars <- c("neg_indegree", "neg_outdegree", "pos_indegree", "pos_outdegree", "reciprocal", "non_reciprocal")  # Categorical variable names
+categorical_vars <- c("pos_isolate", "neg_isolate")  # Numerical variable names
+#round(cor(d_analysis[,-1], use = "pairwise.complete"),2)
+round(cor(d_cluster_z[,numerical_vars], use = "pairwise.complete"),2)
+corrplot(cor(d_cluster_z[,numerical_vars], use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75) 
+```
+
 ## K-Proto Clustering
 
 The kproto() function allows us to do k-prototypes algorithm (allows you to update the cluster centroids for continuous variables using the means and updating the cluster modes for binary variables using the mode.) We have both continuous and factor vars, so we use this method
@@ -566,11 +471,6 @@ The kproto() function allows us to do k-prototypes algorithm (allows you to upda
 First, determine how many k to use
 
 ```{r}
-
-# Prepare your data with categorical variables as factors and numerical variables as numeric
-# For example:
-categorical_vars <- c("neg_indegree", "neg_outdegree", "pos_indegree", "pos_outdegree", "reciprocal", "non_reciprocal")  # Categorical variable names
-numerical_vars <- c("pos_isolate", "neg_isolate")  # Numerical variable names
 
 # Combine categorical and numerical variables into a single data frame
 d_proto <- data.frame(d_cluster_z[, categorical_vars], d_cluster_z[, numerical_vars]) %>%
@@ -590,6 +490,7 @@ for (k in k_values) {
 
 # Plot the total within-cluster sum of squares
 plot(k_values, tot_withinss, type = "b", pch = 19, frame = FALSE, xlab = "Number of Clusters (k)", ylab = "Total Within-Cluster Sum of Squares", main = "Total Within-Cluster Sum of Squares vs. Number of Clusters")
+
 ```
 
 Not very clear... let's go for 6?
@@ -663,19 +564,25 @@ histogram(d_analysis$neg_isolate)
 #### Modeling
 
 ```{r}
-d_analysis <- mutate(d_analysis, cluster = as.factor(cluster_labels)) 
+d_analysis <- mutate(d_analysis, cluster = as.factor(cluster_labels)) |> 
+  mutate(cluster_labels = case_when(
+  cluster_labels == 1 ~ "average",
+  cluster_labels == 2 ~ "disliked",
+  cluster_labels == 3 ~ "loner",
+  cluster_labels == 4 ~ "unreciprocated",
+  cluster_labels == 5 ~ "unproblematic",
+  cluster_labels == 6 ~ "popular"
+))
 #rename clusters here according to the typology
 
 
 #ADD CLASS SIZES/INTERACTIONS!!!!, school type 
-m1 <- lmer(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | classidCUF) + class_size, data = d_analysis,
+m1 <- lmer(sch_satisfaction ~  cluster_labels + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | schoolidCUF/classidCUF) + class_size + sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed, data = d_analysis,
           REML = F, na.action = na.omit)
 summary(m1)
 
-#sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed
 
-
-m2 <- glmer(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | classidCUF) + class_size + sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed
+m2 <- glmer(sch_satisfaction ~  cluster_labels + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | schoolidCUF/classidCUF) + class_size + sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed
 ,  
             data = d_analysis, 
             family = gaussian(link = "log"), 
@@ -683,14 +590,11 @@ m2 <- glmer(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant +
 summary(m2)
 
 
-m3 <- glmer(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | classidCUF), family = inverse.gaussian(link = "log"), data = d_analysis)
-summary(m3)
-
 #this might be most suitable (for left-skewed outcome var:)
-m4 <- glmer(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | classidCUF) + class_size + sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed
+m3<- glmer(sch_satisfaction ~  cluster_labels + sexgirl + cog_abil + age + immigrant + ISEI_parent + (1 | schoolidCUF/classidCUF) + class_size + sch_combo + sch_int + sch_comp + sch_secondary + sch_specneed
 , family = Gamma(link = "log"), data = d_analysis)
-summary(m4)
-
+summary(m3)
+tab_model(m3)
 
 ```
 
@@ -700,10 +604,9 @@ Dealing with non-normality: new (final?) model
 
 ## Using mixed model with penalized quasilikelihood (PQL) since our data are not normally distributed
 
-PQL <- glmmPQL(sch_satisfaction ~  cluster + sexgirl + cog_abil + age + immigrant + ISEI_parent + class_size, random = ~1 | schoolidCUF/classidCUF, family = Gamma(link = "log"),
+m5 <- glmmPQL(sch_satisfaction ~  cluster_labels + sexgirl + cog_abil + age + immigrant + ISEI_parent + class_size, random = ~1 | schoolidCUF/classidCUF, family = Gamma(link = "log"),
     data = d_analysis, verbose = FALSE)
-summary(PQL)
-
+summary(m5)
 
 ```
 
@@ -711,7 +614,7 @@ summary(PQL)
 
 ```{r}
 d_analysis |> 
-  dplyr::select(sch_satisfaction, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, n_mutual_bfs, non_reciprocal) |>  
+  dplyr::select(sch_satisfaction, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, reciprocal, non_reciprocal) |>  
   #mutate_at(vars(-c(y1_sat2)), scale) |> 
   pivot_longer(cols = -c(sch_satisfaction),
                names_to = "network_trait", 
@@ -720,26 +623,55 @@ d_analysis |>
   facet_wrap(~network_trait, labeller = function(variable, value){
     value <- gsub("neg_", "Negative ", value)
     value <- gsub("pos_", "Positive ", value)
-    value <- gsub("n_mutual_bfs","# Reciprocal friends", value)
-    value <- gsub("non_reciprocal","# Non-reciprocal friends", value)
+    value <- gsub("reciprocal","Reciprocal friends", value)
+    value <- gsub("non_reciprocal","Non-reciprocal friends", value)
     return(value)
   }, scales = "free") +
   stat_summary(geom = "line", fun = "mean") +
   scale_color_brewer(palette = "Paired") +
-  labs(y = 'Self-Rated School Satisfaction\n(1-10)', title = 'How do student network traits\nin class relate to their school satisfaction?')+
+  labs(y = 'Self-Rated School Satisfaction\n(1-10)', x = "Continuous Network Measures", title = 'Continuous Network Characteristics vs School Satisfaction')+
   theme(legend.position = "none")
 
 ```
 
 ```{r}
-d_variables <- d_analysis |> 
-  dplyr::dplyr::select(sexgirl, age, immigrant, victimization, schooltype, class_size, lang_test, cog_test, neg_indegree, neg_outdegree, pos_indegree, pos_outdegree, pos_isolate, neg_isolate, n_mutual_bfs, non_reciprocal, sch_satisfaction) |> 
-  na.omit()
-summary(d_variables)
 
-stargazer(as.data.frame(d_variables), type = "text", out = "summarystats.txt",
-          title = "Table 1. Descriptive Statistics", digits = 2)
 
+d_analysis  |> 
+  dplyr::select(pos_isolate, neg_isolate, sch_satisfaction) |>
+  pivot_longer(cols = -c(sch_satisfaction),
+               names_to = "network_trait",
+               values_to = "value") %>%
+  ggplot(aes(y = sch_satisfaction, x = value, fill = network_trait)) +
+  facet_wrap(~network_trait, labeller = function(variable, value) {
+    value <- gsub("neg_", "Negative ", value)
+    value <- gsub("pos_", "Positive ", value)
+    return(value)
+  }, scales = "free") +
+  geom_boxplot() +
+  scale_fill_brewer(palette = 'Paired')+
+  labs(x = 'Isolate Indicators', y = 'School Satisfaction', title = 'Isolate Indicators (Binary) vs School Satisfaction')+
+  theme(legend.position = 'none')
+
+
+
+
+
+# 
+# p1box <- ggplot(aes(x = pos_isolate, y = sch_satisfaction), data = d_analysis)+
+#   geom_boxplot(fill = 'lightblue')+
+#   labs(x = "Positive Isolate Indicator", y = "Mean Satisfaction in School")
+# 
+# p2box <- ggplot(aes(x = neg_isolate, y = sch_satisfaction), data = d_analysis)+
+#   geom_boxplot(fill = 'darkred')+
+#   labs(x = "Negative Isolate Indicator", y = "")
+# 
+# box_plots <- ggarrange(p1box, p2box, ncol = 2) + labs(title ='Isolate Indicators (Binary) vs School Satisfaction')
+# box_plots
+# 
+# 
+# 
+# 
 
 ```
 
