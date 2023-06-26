@@ -1,23 +1,23 @@
 
 Table 1. Descriptive Statistics
-=============================================
-Statistic         N  Mean  St. Dev. Min  Max 
----------------------------------------------
-sexgirl          807 0.57    0.50    0    1  
-age              807 14.65   0.67    13   17 
-immigrant        807 0.05    0.22    0    1  
-victimization    807 1.29    0.47   1.00 3.67
-schooltype       807 3.44    1.36    1    5  
-class_size       807 17.18   3.93    10   26 
-lang_test        807 13.38   4.03    2    25 
-cog_test         807 20.19   3.48    1    27 
-neg_indegree     807 2.15    2.72    0    17 
-neg_outdegree    807 3.21    1.62    0    5  
-pos_indegree     807 2.95    1.82    0    9  
-pos_outdegree    807 3.89    1.30    0    5  
-pos_isolate      807 0.01    0.11    0    1  
-neg_isolate      807 0.02    0.15    0    1  
-n_mutual_bfs     807 2.05    1.29    0    5  
-non_reciprocal   807 2.37    1.24    0    5  
-sch_satisfaction 807 6.46    1.99    1    10 
----------------------------------------------
+=================================================
+Statistic          N   Mean  St. Dev.  Min   Max 
+-------------------------------------------------
+sexgirl          1,337 0.56    0.50     0     1  
+age              1,337 14.67   0.68    13    17  
+immigrant        1,337 0.36    0.48     0     1  
+ISEI_parent      1,337 42.93  17.61   14.21 88.70
+schooltype       1,337 3.43    1.33     1     5  
+class_size       1,337 17.09   3.92    10    26  
+lang_test        1,337 12.84   4.21     1    25  
+cog_test         1,337 20.11   3.49     1    27  
+neg_indegree     1,337 2.22    2.68     0    17  
+neg_outdegree    1,337 3.29    1.62     0     5  
+pos_indegree     1,337 2.93    1.79     0    10  
+pos_outdegree    1,337 3.92    1.29     0     5  
+pos_isolate      1,337 0.01    0.11     0     1  
+neg_isolate      1,337 0.02    0.14     0     1  
+n_mutual_bfs     1,337 2.04    1.30     0     5  
+non_reciprocal   1,337 2.40    1.25     0     5  
+sch_satisfaction 1,337 6.40    2.00     1    10  
+-------------------------------------------------
